@@ -1,0 +1,93 @@
+/* Color tokens */
+
+@theme {
+  /* ── Brand — anchored at 500 (#476cff) ─────────── */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #dbe3ff;
+  --color-brand-200: #bfcdff;
+  --color-brand-300: #94adff;
+  --color-brand-400: #6a8aff;
+  --color-brand-500: #476cff;
+  --color-brand-600: #3450e0;
+  --color-brand-700: #2a3fb8;
+  --color-brand-800: #253795;
+  --color-brand-900: #233475;
+  --color-brand-950: #171f47;
+
+  /* ── Gray — cool, low-chroma neutral ───────────── */
+  --color-gray-50: #fafbfd;
+  --color-gray-100: #f2f4f8;
+  --color-gray-200: #e7eaf1;
+  --color-gray-300: #d4d9e4;
+  --color-gray-400: #a7aec0;
+  --color-gray-500: #7b8398;
+  --color-gray-600: #5b6376;
+  --color-gray-700: #444b5c;
+  --color-gray-800: #2d3340;
+  --color-gray-900: #1b1f29;
+  --color-gray-950: #0e1117;
+
+  /* ── Status ────────────────────────────────────── */
+  --color-error: #dc2626;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+
+  /* ── Base ──────────────────────────────────────── */
+  --color-background: #ffffff;
+  --color-surface-primary: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-brand-50: #171f47;
+    --color-brand-100: #233475;
+    --color-brand-200: #253795;
+    --color-brand-300: #2a3fb8;
+    --color-brand-400: #3450e0;
+    --color-brand-500: #6a8aff;
+    --color-brand-600: #94adff;
+    --color-brand-700: #bfcdff;
+    --color-brand-800: #dbe3ff;
+    --color-brand-900: #eef2ff;
+    --color-brand-950: #f5f7ff;
+
+    --color-gray-50: #0e1117;
+    --color-gray-100: #1b1f29;
+    --color-gray-200: #2d3340;
+    --color-gray-300: #444b5c;
+    --color-gray-400: #5b6376;
+    --color-gray-500: #7b8398;
+    --color-gray-600: #a7aec0;
+    --color-gray-700: #d4d9e4;
+    --color-gray-800: #e7eaf1;
+    --color-gray-900: #f2f4f8;
+    --color-gray-950: #fafbfd;
+
+    --color-error: #ef4444;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+
+    --color-background: #0a0c11;
+    --color-surface-primary: #13161d;
+  }
+}
+
+/* Semantic roles — `inline` keeps the var() references live
+   so they follow the palette when it swaps in dark mode. */
+@theme inline {
+  --color-text-primary: var(--color-gray-900);
+  --color-text-secondary: var(--color-gray-600);
+  --color-text-tertiary: var(--color-gray-400);
+
+  --color-surface-secondary: var(--color-gray-50);
+  --color-surface-tertiary: var(--color-gray-100);
+
+  /* text 와 같은 방향으로 읽는다 — primary 가 가장 강하고 tertiary 가 가장 약하다.
+     화면을 나누기만 하는 구분선(헤더·사이드내비·입력창)은 tertiary,
+     시선을 잡아야 하는 경계만 secondary 이상을 쓴다. */
+  --color-border-primary: var(--color-gray-400);
+  --color-border-secondary: var(--color-gray-300);
+  --color-border-tertiary: var(--color-gray-200);
+  /* tertiary 보다 한 단계 더 약한 경계. 큰 면을 아주 옅게 나눌 때만. */
+  --color-border-subtle: var(--color-gray-100);
+}

@@ -4,22 +4,34 @@ type ButtonVariant = "primary" | "secondary" | "outline";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /**
+   * 아이콘만 담는 정사각형 버튼.
+   * 좌우 여백을 없애야 아이콘이 정확히 가운데 온다 — `px-4` 가 남으면
+   * 콘텐츠 박스보다 큰 아이콘이 오른쪽으로 밀린다.
+   */
+  iconOnly?: boolean;
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-white hover:opacity-90",
-  secondary: "bg-secondary text-white hover:opacity-90",
-  outline: "border border-border text-text hover:bg-black/5",
+  primary:
+    "bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700",
+  secondary:
+    "bg-surface-tertiary text-text-primary hover:bg-gray-200 active:bg-gray-300",
+  outline:
+    "border border-border-tertiary bg-transparent text-text-primary hover:bg-surface-tertiary active:bg-gray-200",
 };
 
 export function Button({
   variant = "primary",
+  iconOnly = false,
   className = "",
   ...props
 }: ButtonProps) {
   return (
     <button
-      className={`px-4 py-2 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        iconOnly ? "size-10 shrink-0 p-0" : "px-4 py-2"
+      } ${variantClasses[variant]} ${className}`}
       {...props}
     />
   );

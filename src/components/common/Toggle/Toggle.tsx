@@ -6,23 +6,23 @@ interface ToggleProps {
 
 export function Toggle({ checked, onChange, label }: ToggleProps) {
   return (
-    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+    <label className="inline-flex cursor-pointer select-none items-center gap-2">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`w-10 h-6 rounded-full transition-colors ${
-          checked ? "bg-brand" : "bg-border"
+        className={`flex h-6 w-10 items-center rounded-full transition-colors ${
+          checked ? "bg-brand-500" : "bg-gray-300"
         }`}
       >
         <span
-          className={`block w-4 h-4 bg-white rounded-full transition-transform ${
+          className={`block h-4 w-4 rounded-full bg-white transition-transform ${
             checked ? "translate-x-5" : "translate-x-1"
           }`}
         />
       </button>
-      {label && <span className="text-sm text-text">{label}</span>}
+      {label && <span className="text-sm text-text-primary">{label}</span>}
     </label>
   );
 }
