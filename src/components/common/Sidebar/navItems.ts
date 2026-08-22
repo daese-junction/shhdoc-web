@@ -78,7 +78,7 @@ export const MANAGE_NAV_SECTIONS: NavSection[] = [
       { href: "/manage/approval", label: "승인/결재", Icon: VerifiedUserOutlined },
       {
         href: "/manage/document-policy",
-        label: "문서 정책",
+        label: "정책",
         Icon: PolicyOutlined,
       },
     ],
