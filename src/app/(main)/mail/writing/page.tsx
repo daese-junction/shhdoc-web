@@ -2,13 +2,16 @@
 
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import { useId, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { Button, Checkbox, Input, Tooltip } from "@/components/common";
+import { Suspense, useEffect, useId, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button, Checkbox, Input, Loading, Tooltip } from "@/components/common";
 import { ApiError } from "@/api/client";
 import { saveDraft } from "@/api/mail";
+import { fetchMailDetail } from "@/mocks/mail";
 import { useToastStore } from "@/stores/useToastStore";
-import { ROUTES } from "@/utils/routes";
+import type { MailDetail } from "@/types/mail";
+import { formatMailDateTime } from "@/utils/formatDate";
+import { ROUTES, type ComposeMode } from "@/utils/routes";
 import { AttachmentButton } from "./AttachmentButton";
 import { AttachmentList } from "./AttachmentList";
 import { RecipientInput } from "./RecipientInput";
@@ -21,15 +24,128 @@ function isBlank(html: string): boolean {
   return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim() === "";
 }
 
+interface ComposeDraft {
+  recipients: string[];
+  subject: string;
+  body: string;
+}
+
+const EMPTY_DRAFT: ComposeDraft = { recipients: [], subject: "", body: "" };
+
+const escapeHtml = (text: string) =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** 이미 `Re:` 가 붙은 제목에 또 붙이지 않는다 */
+const withPrefix = (prefix: string, title: string) =>
+  title.toLowerCase().startsWith(prefix.toLowerCase())
+    ? title
+    : `${prefix} ${title}`;
+
+const addressText = ({ name, email }: { name: string; email: string }) =>
+  `${name} <${email}>`;
+
+function buildDraft(mode: ComposeMode, mail: MailDetail): ComposeDraft {
+  // 본문은 이미 에디터가 만든 HTML 이라 그대로 인용한다
+  if (mode === "reply") {
+    return {
+      recipients: [mail.sender.email],
+      subject: withPrefix("Re:", mail.title),
+      body: [
+        "<p></p>",
+        "<blockquote>",
+        `<p>${escapeHtml(
+          `${formatMailDateTime(mail.receivedAt)} ${addressText(mail.sender)} 님이 작성:`,
+        )}</p>`,
+        mail.body,
+        "</blockquote>",
+      ].join(""),
+    };
+  }
+
+  return {
+    recipients: [],
+    subject: withPrefix("Fwd:", mail.title),
+    body: [
+      "<p></p>",
+      "<hr>",
+      "<p>---------- 전달된 메일 ----------</p>",
+      `<p>${escapeHtml(`보낸사람: ${addressText(mail.sender)}`)}</p>`,
+      `<p>${escapeHtml(
+        `받는사람: ${mail.recipients.map(addressText).join(", ")}`,
+      )}</p>`,
+      `<p>${escapeHtml(`날짜: ${formatMailDateTime(mail.receivedAt)}`)}</p>`,
+      `<p>${escapeHtml(`제목: ${mail.title}`)}</p>`,
+      mail.body,
+    ].join(""),
+  };
+}
+
 export default function MailWritingPage() {
+  // useSearchParams 는 프리렌더 시 경계가 필요하다
+  return (
+    <Suspense fallback={<Loading />}>
+      <MailWriting />
+    </Suspense>
+  );
+}
+
+function MailWriting() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode") as ComposeMode | null;
+  const sourceId = searchParams.get("id");
+  const isPrefill =
+    (mode === "reply" || mode === "forward") && Boolean(sourceId);
+
+  const draftKey = `${mode ?? "new"}-${sourceId ?? ""}`;
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    draft: ComposeDraft;
+  } | null>(null);
+
+  // 에디터가 비제어라 원문을 다 읽기 전에는 폼을 마운트하지 않는다.
+  // 키가 다르면 이전 원문으로 만든 초안이므로 아직 없는 것으로 본다.
+  const draft = isPrefill
+    ? loaded?.key === draftKey
+      ? loaded.draft
+      : null
+    : EMPTY_DRAFT;
+
+  useEffect(() => {
+    if (!isPrefill || !mode || !sourceId) return;
+
+    let cancelled = false;
+    void fetchMailDetail(sourceId).then((mail) => {
+      if (cancelled) return;
+      setLoaded({
+        key: draftKey,
+        draft: mail ? buildDraft(mode, mail) : EMPTY_DRAFT,
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPrefill, mode, sourceId, draftKey]);
+
+  if (!draft) return <Loading />;
+
+  // 원문이 바뀌면 폼과 에디터를 새로 마운트한다
+  return <ComposeForm key={draftKey} draft={draft} />;
+}
+
+interface ComposeFormProps {
+  draft: ComposeDraft;
+}
+
+function ComposeForm({ draft }: ComposeFormProps) {
   const router = useRouter();
   const showToast = useToastStore((state) => state.show);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [recipients, setRecipients] = useState<string[]>([]);
+  const [recipients, setRecipients] = useState<string[]>(draft.recipients);
   const [isIndividual, setIsIndividual] = useState(false);
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(draft.subject);
   const [isImportant, setIsImportant] = useState(false);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(draft.body);
   const { attachments, totalSize, maxTotalSize, add, remove, clear } =
     useAttachments();
   const {
@@ -160,6 +276,7 @@ export default function MailWritingPage() {
       </div>
 
       <TextEditor
+        defaultValue={draft.body}
         placeholder="메일 내용을 입력하세요"
         characterLimit={10000}
         minHeightClass="min-h-96"

@@ -11,12 +11,14 @@ interface LayoutProps {
 
 export function Layout({ sidebar = <AreaSidebar />, children }: LayoutProps) {
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <Header />
       <div className="flex min-h-0 flex-1">
         {sidebar}
         {/* 여백은 각 페이지가 직접 잡는다 */}
-        <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+          {children}
+        </main>
       </div>
       <Footer />
     </div>

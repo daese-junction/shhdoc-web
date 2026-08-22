@@ -33,7 +33,7 @@ export function Sidebar({
       } ${className}`}
     >
       {header && <div className="shrink-0 p-2">{header}</div>}
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-2 pb-2">
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-x-hidden overflow-y-auto px-2 pb-2">
         {children}
       </nav>
     </aside>

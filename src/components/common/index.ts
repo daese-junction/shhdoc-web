@@ -4,6 +4,7 @@ export { PasswordInput } from "./PasswordInput/PasswordInput";
 export { SearchInput } from "./SearchInput/SearchInput";
 export { Checkbox } from "./Checkbox/Checkbox";
 export { Modal } from "./Modal/Modal";
+export { ConfirmModal } from "./ConfirmModal/ConfirmModal";
 export { Toast } from "./Toast/Toast";
 export { Dropdown } from "./Dropdown/Dropdown";
 export { Popover } from "./Popover/Popover";

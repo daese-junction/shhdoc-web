@@ -15,9 +15,12 @@ import {
   Color,
   TextStyle,
 } from "@tiptap/extension-text-style";
+import { MAIL_BODY_CLASS } from "@/components/mail";
 import { EditorToolbar } from "./EditorToolbar";
 
 export interface TextEditorProps {
+  /** 초기 본문 HTML (답장·전달 인용문 등). 이후 값은 에디터가 직접 관리한다. */
+  defaultValue?: string;
   /** 본문이 바뀔 때마다 HTML 문자열을 넘겨준다. */
   onChange?: (html: string) => void;
   /** 본문이 비었을 때 보여줄 안내문 */
@@ -38,34 +41,15 @@ export interface TextEditorProps {
  */
 const CONTENT_CLASS = [
   "w-full px-4 py-3 text-sm leading-relaxed text-text-primary focus:outline-none",
-  // 문단·제목
-  "[&_p]:my-2",
-  "[&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-semibold",
-  "[&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold",
-  "[&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-lg [&_h3]:font-semibold",
-  // 목록
-  "[&_ul]:my-2 [&_ul]:pl-6",
-  // Tab 으로 들여쓸 때마다 채운 원 → 빈 원 → 채운 네모 순으로 돌아간다
-  "[&_ul]:list-disc [&_ul_ul]:list-[circle] [&_ul_ul_ul]:list-[square]",
-  "[&_ul_ul_ul_ul]:list-disc [&_ul_ul_ul_ul_ul]:list-[circle] [&_ul_ul_ul_ul_ul_ul]:list-[square]",
-  "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6",
-  "[&_li]:my-0.5 [&_li>p]:my-0",
-  "[&_li>ul]:my-0 [&_li>ol]:my-0",
-  // 인용·구분선
-  "[&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-border-secondary [&_blockquote]:pl-3 [&_blockquote]:text-text-secondary",
-  "[&_hr]:my-4 [&_hr]:border-t [&_hr]:border-border-tertiary",
-  // 코드
-  "[&_code]:rounded [&_code]:bg-surface-tertiary [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]",
-  "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-surface-tertiary [&_pre]:p-3 [&_pre]:text-[0.85em]",
-  "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-  // 링크
-  "[&_a]:text-brand-500 [&_a]:underline [&_a]:underline-offset-2",
+  // 서식은 상세 화면과 한 벌로 관리한다 (components/mail/mailBody.ts)
+  MAIL_BODY_CLASS,
   // Placeholder 확장이 붙여주는 data-placeholder 를 안내문으로 띄운다
   "[&_.is-empty::before]:pointer-events-none [&_.is-empty::before]:float-left [&_.is-empty::before]:h-0",
   "[&_.is-empty::before]:text-text-tertiary [&_.is-empty::before]:[content:attr(data-placeholder)]",
 ].join(" ");
 
 export function TextEditor({
+  defaultValue = "",
   onChange,
   placeholder = "내용을 입력하세요",
   characterLimit,
@@ -76,6 +60,7 @@ export function TextEditor({
   const editor = useEditor({
     // 서버에서 미리 그리면 하이드레이션이 어긋난다 (Next.js 에서는 필수)
     immediatelyRender: false,
+    content: defaultValue,
     extensions: [
       StarterKit.configure({
         // 편집 중에 링크를 눌러 페이지가 이동해버리는 것을 막는다

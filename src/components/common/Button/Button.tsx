@@ -1,9 +1,12 @@
 import type { ButtonHTMLAttributes } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "outline";
+type ButtonSize = "sm" | "md";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /** 툴바처럼 여백을 아껴야 하는 자리에는 `sm`. 기본은 `md`. */
+  size?: ButtonSize;
   /**
    * 아이콘만 담는 정사각형 버튼.
    * 좌우 여백을 없애야 아이콘이 정확히 가운데 온다 — `px-4` 가 남으면
@@ -23,8 +26,19 @@ const variantClasses: Record<ButtonVariant, string> = {
     "border border-border-tertiary bg-transparent text-text-primary hover:bg-surface-tertiary active:bg-gray-200",
 };
 
+const sizeClasses: Record<ButtonSize, string> = {
+  sm: "h-8 px-3 text-xs",
+  md: "px-4 py-2 text-sm",
+};
+
+const iconOnlySizeClasses: Record<ButtonSize, string> = {
+  sm: "size-8 shrink-0 p-0 text-xs",
+  md: "size-10 shrink-0 p-0 text-sm",
+};
+
 export function Button({
   variant = "primary",
+  size = "md",
   iconOnly = false,
   loading = false,
   className = "",
@@ -36,8 +50,9 @@ export function Button({
     <button
       aria-busy={loading || undefined}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        iconOnly ? "size-10 shrink-0 p-0" : "px-4 py-2"
+      // 글자 크기는 size 가 정한다 — 여기서 text-sm 을 박으면 sm 이 먹히지 않는다
+      className={`inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]
       } ${variantClasses[variant]} ${className}`}
       {...props}
     >
