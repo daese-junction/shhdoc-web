@@ -13,7 +13,7 @@ export type ReviewResults = Record<string, boolean>;
 export interface UseAttachmentReviewResult {
   status: ReviewStatus;
   results: ReviewResults;
-  /** 지금 첨부 목록 그대로 검토를 마쳤고 전부 유출 가능한지 */
+  /** 보낼 수 있는 상태인지. 첨부가 없으면 검토할 문서도 없어 통과로 본다. */
   isReviewed: boolean;
   review: () => void;
 }
@@ -46,8 +46,10 @@ export function useAttachmentReview(
     : isCurrent
       ? "done"
       : "idle";
+  // 첨부가 없으면 검토할 문서도 없다 — 빈 목록은 통과한 것으로 둔다
   const isReviewed =
-    isCurrent && attachments.every(({ id }) => results[id] === true);
+    attachments.length === 0 ||
+    (isCurrent && attachments.every(({ id }) => results[id] === true));
 
   const review = useCallback(() => {
     if (attachments.length === 0) return;

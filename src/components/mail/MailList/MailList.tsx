@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmModal, EmptyState, Loading } from "@/components/common";
+import { getErrorMessage } from "@/api/axios";
 import { useMailSelection } from "@/hooks/useMailSelection";
 import { useToastStore } from "@/stores/useToastStore";
 import type { FetchMailPage, Mail, MailListVariant } from "@/types/mail";
@@ -34,6 +35,8 @@ interface MailListProps {
   onPermanentDelete?: (ids: string[]) => Promise<void> | void;
   onRestore?: (ids: string[]) => Promise<void> | void;
   onOpenMail?: (mail: Mail) => void;
+  /** 새로고침이 캐시를 건너뛰고 서버를 다시 보게 한다. 참조가 고정돼 있어야 한다. */
+  onInvalidate?: () => void;
 }
 
 export function MailList({
@@ -51,6 +54,7 @@ export function MailList({
   onPermanentDelete,
   onRestore,
   onOpenMail,
+  onInvalidate,
 }: MailListProps) {
   const [ownPage, setOwnPage] = useState(1);
   const page = controlledPage ?? ownPage;
@@ -76,6 +80,11 @@ export function MailList({
 
   const selection = useMailSelection();
   const showToast = useToastStore((state) => state.show);
+  // 조회 effect 가 토스트 때문에 다시 돌지 않도록 ref 로 들고 있는다
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  });
   // shift 범위 선택의 기준이 되는 직전 클릭 행. 페이지가 바뀌면 순번이 달라져 지운다.
   const anchorIndexRef = useRef<number | null>(null);
 
@@ -85,21 +94,32 @@ export function MailList({
   useEffect(() => {
     let cancelled = false;
 
-    void fetchPage({ page, pageSize }).then((result) => {
-      if (cancelled) return;
+    void fetchPage({ page, pageSize })
+      .then((result) => {
+        if (cancelled) return;
 
-      // 삭제 등으로 전체 페이지 수가 줄어든 경우 마지막 페이지를 다시 조회한다
-      const lastPage = Math.max(1, Math.ceil(result.total / pageSize));
-      if (page > lastPage) {
-        setPageRef.current(lastPage);
-        return;
-      }
+        // 삭제 등으로 전체 페이지 수가 줄어든 경우 마지막 페이지를 다시 조회한다
+        const lastPage = Math.max(1, Math.ceil(result.total / pageSize));
+        if (page > lastPage) {
+          setPageRef.current(lastPage);
+          return;
+        }
 
-      setItems(result.items);
-      setTotal(result.total);
-      setIsLoading(false);
-      anchorIndexRef.current = null;
-    });
+        setItems(result.items);
+        setTotal(result.total);
+        setIsLoading(false);
+        anchorIndexRef.current = null;
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+
+        // 로딩을 반드시 내려야 한다 — 안 그러면 스피너에 갇혀 새로고침도 못 누른다
+        setIsLoading(false);
+
+        const message = getErrorMessage(error, {}, "메일을 불러오지 못했습니다.");
+        // 네트워크 오류는 인터셉터가 이미 토스트로 알렸다
+        if (message) showToastRef.current(message, "error");
+      });
 
     return () => {
       cancelled = true;
@@ -107,9 +127,11 @@ export function MailList({
   }, [fetchPage, page, pageSize, reloadKey]);
 
   const reload = useCallback(() => {
+    // 캐시를 비우지 않으면 새로고침해도 방금 본 목록이 그대로 돌아온다
+    onInvalidate?.();
     setIsLoading(true);
     setReloadKey((key) => key + 1);
-  }, []);
+  }, [onInvalidate]);
 
   const movePage = (nextPage: number) => {
     if (nextPage === page) return;
@@ -170,14 +192,29 @@ export function MailList({
     setConfirmMode(null);
     if (ids.length === 0) return;
 
-    await onDelete?.(ids);
+    try {
+      await onDelete?.(ids);
+    } catch (error) {
+      // 일부만 지워졌을 수 있으므로 목록은 다시 읽는다
+      reload();
+      const message = getErrorMessage(error, {}, "메일을 삭제하지 못했습니다.");
+      if (message) showToast(message, "error");
+      return;
+    }
+
     selection.clear();
     reload();
-    showToast(`${ids.length}개의 메일을 삭제했습니다.`, {
-      type: "success",
-      duration: UNDO_TOAST_DURATION,
-      action: { label: "되돌리기", onClick: () => void handleRestore(ids) },
-    });
+    // 되돌릴 수단이 없으면 되돌리기 버튼도 내주지 않는다 (초안 삭제는 복구가 없다)
+    showToast(
+      `${ids.length}개의 메일을 삭제했습니다.`,
+      onRestore
+        ? {
+            type: "success",
+            duration: UNDO_TOAST_DURATION,
+            action: { label: "되돌리기", onClick: () => void handleRestore(ids) },
+          }
+        : { type: "success", duration: TOAST_DURATION },
+    );
   };
 
   // 완전 삭제는 복구할 수 없으므로 되돌리기 액션을 제공하지 않는다
@@ -217,9 +254,11 @@ export function MailList({
           selection.select(pageIds, checked);
         }}
         onRefresh={reload}
-        onMarkAsRead={() => void handleMarkAsRead()}
-        onDelete={() => setConfirmMode("delete")}
-        onPermanentDelete={() => setConfirmMode("permanentDelete")}
+        onMarkAsRead={onMarkAsRead && (() => void handleMarkAsRead())}
+        onDelete={onDelete && (() => setConfirmMode("delete"))}
+        onPermanentDelete={
+          onPermanentDelete && (() => setConfirmMode("permanentDelete"))
+        }
         onPrevPage={() => movePage(Math.max(1, page - 1))}
         onNextPage={() => movePage(Math.min(totalPages, page + 1))}
       />
