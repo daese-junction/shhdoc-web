@@ -1,0 +1,29 @@
+name: Create Issue Branch
+
+on:
+  issues:
+    # assigned: 이슈에 담당자가 지정되면 브랜치 생성
+    types: [assigned]
+  issue_comment:
+    # 코멘트에 `/cib` 를 남기면 수동으로 브랜치 생성
+    types: [created]
+  pull_request:
+    # opened: PR 을 이슈에 연결하고 라벨/담당자를 복사
+    # closed: PR 이 머지되면 이슈 자동 close
+    types: [opened, closed]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  create_issue_branch_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Issue Branch
+        # TODO(security): 공급망 안전을 원하면 커밋 SHA 로 고정할 것.
+        # 예: robvanderleek/create-issue-branch@<40자리-commit-sha>
+        uses: robvanderleek/create-issue-branch@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
