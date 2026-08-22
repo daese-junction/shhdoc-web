@@ -3,7 +3,7 @@
 import { useRef, type ChangeEvent } from "react";
 import { Checkbox } from "@/components/common";
 import type { EmailStatus, Mail } from "@/types/mail";
-import { formatMailDate, formatMailDateTime } from "@/utils/formatDate";
+import { formatShortDateTime, formatFullDateTime } from "@/utils/formatDate";
 import { MAIL_STATUS_META, type MailStatusMeta } from "../mailStatus";
 
 interface MailListItemProps {
@@ -77,10 +77,10 @@ export function MailListItem({
       </span>
       <time
         dateTime={mail.receivedAt}
-        title={formatMailDateTime(mail.receivedAt)}
+        title={formatFullDateTime(mail.receivedAt)}
         className="w-28 shrink-0 text-right text-xs text-text-tertiary"
       >
-        {formatMailDate(mail.receivedAt)}
+        {formatShortDateTime(mail.receivedAt)}
       </time>
     </li>
   );

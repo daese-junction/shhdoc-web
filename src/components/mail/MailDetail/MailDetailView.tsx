@@ -24,7 +24,7 @@ import {
 } from "@/mocks/mail";
 import { useToastStore } from "@/stores/useToastStore";
 import type { MailAddress, MailDetail } from "@/types/mail";
-import { formatMailDateTime } from "@/utils/formatDate";
+import { formatFullDateTime } from "@/utils/formatDate";
 import {
   getMailComposeRoute,
   getMailFolderRoute,
@@ -320,7 +320,7 @@ export function MailDetailView({ id }: MailDetailViewProps) {
               dateTime={mail.receivedAt}
               className="ml-auto text-xs whitespace-nowrap text-text-tertiary"
             >
-              {formatMailDateTime(mail.receivedAt)}
+              {formatFullDateTime(mail.receivedAt)}
             </time>
           </div>
 

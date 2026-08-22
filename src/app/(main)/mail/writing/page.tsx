@@ -19,7 +19,7 @@ import {
 import { fetchMailDetail } from "@/mocks/mail";
 import { useToastStore } from "@/stores/useToastStore";
 import type { EmailPayload, MailDetail } from "@/types/mail";
-import { formatMailDateTime } from "@/utils/formatDate";
+import { formatFullDateTime } from "@/utils/formatDate";
 import { ROUTES, type ComposeMode } from "@/utils/routes";
 import { AttachmentButton } from "./AttachmentButton";
 import { AttachmentList } from "./AttachmentList";
@@ -75,7 +75,7 @@ function buildDraft(mode: ComposeMode, mail: MailDetail): ComposeDraft {
         "<p></p>",
         "<blockquote>",
         `<p>${escapeHtml(
-          `${formatMailDateTime(mail.receivedAt)} ${addressText(mail.sender)} 님이 작성:`,
+          `${formatFullDateTime(mail.receivedAt)} ${addressText(mail.sender)} 님이 작성:`,
         )}</p>`,
         source,
         "</blockquote>",
@@ -94,7 +94,7 @@ function buildDraft(mode: ComposeMode, mail: MailDetail): ComposeDraft {
       `<p>${escapeHtml(
         `받는사람: ${mail.recipients.map(addressText).join(", ")}`,
       )}</p>`,
-      `<p>${escapeHtml(`날짜: ${formatMailDateTime(mail.receivedAt)}`)}</p>`,
+      `<p>${escapeHtml(`날짜: ${formatFullDateTime(mail.receivedAt)}`)}</p>`,
       `<p>${escapeHtml(`제목: ${mail.title}`)}</p>`,
       source,
     ].join(""),

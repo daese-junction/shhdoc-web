@@ -1,3 +1,5 @@
+import type { FetchListPage, ListPage, ListPageParams } from "./list";
+
 /** 서버가 관리하는 메일 상태. GET /emails 의 status 값. */
 export type EmailStatus = "DRAFT" | "BLOCKED" | "REJECTED" | "SENT";
 
@@ -50,19 +52,10 @@ export interface Mail {
   status?: EmailStatus;
 }
 
-export interface MailPageParams {
-  page: number;
-  pageSize: number;
-}
-
-export interface MailPage {
-  items: Mail[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-export type FetchMailPage = (params: MailPageParams) => Promise<MailPage>;
+/** 목록 조회 타입은 공통 목록(DataList)과 같은 것을 쓴다 */
+export type MailPageParams = ListPageParams;
+export type MailPage = ListPage<Mail>;
+export type FetchMailPage = FetchListPage<Mail>;
 
 /** 목록이 어떤 메일함을 그리는지 구분한다 */
 export type MailListVariant = "default" | "trash";
