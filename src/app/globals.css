@@ -12,6 +12,10 @@
   --scrollbar-thumb-hover: var(--color-gray-400);
   --scrollbar-track: transparent;
 
+  /* 로그인/회원가입 브랜드 패널의 커서 글로우. 패널이 항상 파란 배경이라
+     사이트 다크모드와 무관하게 흰색으로 고정한다. */
+  --auth-glow: rgba(255, 255, 255, 0.45);
+
   color-scheme: light;
 }
 
@@ -110,6 +114,24 @@ summary,
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* 로그인/회원가입 카드에 아주 가끔 스치는 유리 반사광. 대부분은 화면 밖에 머물다
+   주기의 15% 구간에서만 한 번 스윽 지나가, 눈에 거슬리지 않게 "반짝"이는 정도로 그친다. */
+@keyframes auth-card-shine {
+  0% {
+    transform: translateX(-150%) skewX(-12deg);
+  }
+  15% {
+    transform: translateX(250%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(250%) skewX(-12deg);
+  }
+}
+
+@utility animate-auth-shine {
+  animation: auth-card-shine 6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

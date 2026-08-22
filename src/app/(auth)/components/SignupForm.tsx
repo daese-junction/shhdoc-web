@@ -34,8 +34,11 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const [formError, setFormError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const update = (key: keyof SignupInput, value: string) =>
+  const update = (key: keyof SignupInput, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    // 고치는 즉시 해당 필드 에러를 지운다. 제출해야만 사라지면 답답하다.
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -136,7 +139,9 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         autoCapitalize="none"
         placeholder="hongildong"
         value={form.username}
-        onChange={(event) => update("username", event.target.value)}
+        onChange={(event) =>
+          update("username", event.target.value.trim().toLowerCase())
+        }
         error={errors.username}
         hint={previewEmail}
       />
@@ -145,7 +150,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
         layout="horizontal"
         label="비밀번호"
         autoComplete="new-password"
-        placeholder="8자 이상 입력하세요"
+        placeholder="영문·숫자 포함 8자 이상"
         value={form.password}
         onChange={(event) => update("password", event.target.value)}
         error={errors.password}

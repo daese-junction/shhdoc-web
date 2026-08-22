@@ -82,15 +82,28 @@ export function Header() {
         <MenuOutlined fontSize="small" />
       </button>
 
-      <Link href={ROUTES.mail} aria-label="정션 홈" className="shrink-0">
+      <Link
+        href={ROUTES.mail}
+        aria-label="쉿독 홈"
+        className="flex shrink-0 items-center gap-1.5"
+      >
+        <Image
+          aria-hidden
+          src="/assets/images/dog.svg"
+          alt=""
+          width={1248}
+          height={1208}
+          priority
+          className="h-5 w-5"
+        />
         <Image
           src="/assets/images/logo.svg"
-          alt="정션"
-          width={486}
-          height={91}
+          alt="쉿독"
+          width={1112}
+          height={245}
           priority
-          // 로고가 검정 단색 svg 라 다크 모드 배경(bg-surface-primary)에 묻힌다 — invert 로 반전시킨다
-          className="h-5 w-auto dark:brightness-0 dark:invert"
+          // 로고 svg 자체가 다크모드에 맞춰 색을 바꾸므로 여기서 따로 반전하지 않는다
+          className="h-5 w-auto"
         />
       </Link>
 
