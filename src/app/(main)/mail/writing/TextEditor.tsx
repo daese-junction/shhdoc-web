@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   EditorContent,
   useEditor,
@@ -9,24 +10,26 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import { CharacterCount, Placeholder } from "@tiptap/extensions";
 import { TextAlign } from "@tiptap/extension-text-align";
+import {
+  BackgroundColor,
+  Color,
+  TextStyle,
+} from "@tiptap/extension-text-style";
 import { EditorToolbar } from "./EditorToolbar";
 
 export interface TextEditorProps {
-  /** 초기 본문 HTML. 이후 값은 에디터가 직접 관리한다(비제어). */
-  defaultValue?: string;
   /** 본문이 바뀔 때마다 HTML 문자열을 넘겨준다. */
   onChange?: (html: string) => void;
   /** 본문이 비었을 때 보여줄 안내문 */
   placeholder?: string;
-  /** 읽기 전용으로 쓸 때 false. 툴바도 함께 숨는다. */
-  editable?: boolean;
-  /** 마운트 시 본문 끝에 커서를 둔다 */
-  autoFocus?: boolean;
   /** 글자 수 상한. 지정하면 하단에 현재 글자 수를 함께 표시한다. */
   characterLimit?: number;
   /** 본문 영역 최소 높이 (Tailwind 클래스) */
   minHeightClass?: string;
-  className?: string;
+  /** 툴바 오른쪽 끝에 덧붙일 버튼 (첨부 버튼 등) */
+  toolbarExtra?: ReactNode;
+  /** 툴바와 본문 사이에 끼워 넣을 영역 (첨부파일 목록 등) */
+  belowToolbar?: ReactNode;
 }
 
 /**
@@ -41,9 +44,13 @@ const CONTENT_CLASS = [
   "[&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold",
   "[&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-lg [&_h3]:font-semibold",
   // 목록
-  "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6",
+  "[&_ul]:my-2 [&_ul]:pl-6",
+  // Tab 으로 들여쓸 때마다 채운 원 → 빈 원 → 채운 네모 순으로 돌아간다
+  "[&_ul]:list-disc [&_ul_ul]:list-[circle] [&_ul_ul_ul]:list-[square]",
+  "[&_ul_ul_ul_ul]:list-disc [&_ul_ul_ul_ul_ul]:list-[circle] [&_ul_ul_ul_ul_ul_ul]:list-[square]",
   "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6",
   "[&_li]:my-0.5 [&_li>p]:my-0",
+  "[&_li>ul]:my-0 [&_li>ol]:my-0",
   // 인용·구분선
   "[&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-border-secondary [&_blockquote]:pl-3 [&_blockquote]:text-text-secondary",
   "[&_hr]:my-4 [&_hr]:border-t [&_hr]:border-border-tertiary",
@@ -59,27 +66,26 @@ const CONTENT_CLASS = [
 ].join(" ");
 
 export function TextEditor({
-  defaultValue = "",
   onChange,
   placeholder = "내용을 입력하세요",
-  editable = true,
-  autoFocus = false,
   characterLimit,
   minHeightClass = "min-h-64",
-  className = "",
+  toolbarExtra,
+  belowToolbar,
 }: TextEditorProps) {
   const editor = useEditor({
     // 서버에서 미리 그리면 하이드레이션이 어긋난다 (Next.js 에서는 필수)
     immediatelyRender: false,
-    editable,
-    autofocus: autoFocus ? "end" : false,
-    content: defaultValue,
     extensions: [
       StarterKit.configure({
         // 편집 중에 링크를 눌러 페이지가 이동해버리는 것을 막는다
         link: { openOnClick: false },
       }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      // 글자 색 / 형광펜은 textStyle 마크의 인라인 style 로 저장된다
+      TextStyle,
+      Color,
+      BackgroundColor,
       Placeholder.configure({
         placeholder,
         showOnlyCurrent: false,
@@ -101,10 +107,10 @@ export function TextEditor({
   });
 
   return (
-    <div
-      className={`flex flex-col overflow-hidden rounded-lg border border-border-tertiary bg-surface-primary focus-within:border-brand-500 ${className}`}
-    >
-      {editor && editable && <EditorToolbar editor={editor} />}
+    <div className="flex flex-col overflow-hidden rounded-lg border border-border-tertiary bg-surface-primary focus-within:border-brand-500">
+      {editor && <EditorToolbar editor={editor} extra={toolbarExtra} />}
+
+      {belowToolbar}
 
       <EditorContent editor={editor} className="min-w-0 flex-1 overflow-auto" />
 
