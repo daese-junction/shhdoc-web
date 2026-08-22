@@ -6,10 +6,10 @@
  preserveAspectRatio="xMidYMid meet">
 
 <!-- 브랜드 패널 전용 배색. 패널이 항상 파란 배경이라 라이트/다크 구분 없이
-     Shh 는 흰색, Doc 은 배경(brand-500)보다 밝은 브랜드 블루로 고정한다. -->
+     Shh 는 흰색, Doc 은 배경(brand-500)과 대비되는 진한 남색(brand-950)으로 고정한다. -->
 <style>
   .shh-part { fill: #ffffff; }
-  .doc-part { fill: #94adff; }
+  .doc-part { fill: #171f47; }
 </style>
 
 <g transform="translate(0.000000,2048.000000) scale(0.100000,-0.100000)" stroke="none">

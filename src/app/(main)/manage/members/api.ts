@@ -1,5 +1,13 @@
 import { api } from "@/api/axios";
-import type { CreateMemberRequest, CreateMemberResponse } from "@/types/auth";
+import type { CompanyMember, CreateMemberRequest } from "@/types/auth";
+
+/**
+ * GET /companies/members — 같은 회사 계정 전체를 등록순으로 받는다.
+ * ADMIN 전용이 아니다 — 직원 관리 화면과 메일 작성 시 수신자 선택 양쪽에서 쓴다.
+ * 비밀번호·토큰은 응답에 포함되지 않는다.
+ */
+export const listMembers = () =>
+  api.get<CompanyMember[]>("/companies/members").then((res) => res.data);
 
 /**
  * POST /companies/members — ADMIN 이 자기 회사에 직원 계정을 만든다 (role = USER).
@@ -12,5 +20,5 @@ import type { CreateMemberRequest, CreateMemberResponse } from "@/types/auth";
  */
 export const createMember = (payload: CreateMemberRequest) =>
   api
-    .post<CreateMemberResponse>("/companies/members", payload)
+    .post<CompanyMember>("/companies/members", payload)
     .then((res) => res.data);

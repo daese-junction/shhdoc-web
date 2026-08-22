@@ -2,7 +2,6 @@ import type SvgIcon from "@mui/material/SvgIcon";
 import type { MailFolderCounts } from "@/api/emails";
 import AccountTreeOutlined from "@mui/icons-material/AccountTreeOutlined";
 import AllInboxOutlined from "@mui/icons-material/AllInboxOutlined";
-import BadgeOutlined from "@mui/icons-material/BadgeOutlined";
 import BusinessOutlined from "@mui/icons-material/BusinessOutlined";
 import DeleteOutlineOutlined from "@mui/icons-material/DeleteOutlineOutlined";
 import DraftsOutlined from "@mui/icons-material/DraftsOutlined";
@@ -10,6 +9,7 @@ import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import InboxOutlined from "@mui/icons-material/InboxOutlined";
 import PendingActionsOutlined from "@mui/icons-material/PendingActionsOutlined";
 import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
+import PolicyOutlined from "@mui/icons-material/PolicyOutlined";
 import SendOutlined from "@mui/icons-material/SendOutlined";
 import VerifiedUserOutlined from "@mui/icons-material/VerifiedUserOutlined";
 
@@ -68,7 +68,6 @@ export const MANAGE_NAV_SECTIONS: NavSection[] = [
     title: "조직",
     items: [
       { href: "/manage/members", label: "구성원", Icon: PeopleOutlined },
-      { href: "/manage/roles", label: "직책", Icon: BadgeOutlined },
       { href: "/manage/departments", label: "조직", Icon: AccountTreeOutlined },
     ],
   },
@@ -77,6 +76,11 @@ export const MANAGE_NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/manage/audit-log", label: "감사 로그", Icon: HistoryOutlined },
       { href: "/manage/approval", label: "승인/결재", Icon: VerifiedUserOutlined },
+      {
+        href: "/manage/document-policy",
+        label: "문서 정책",
+        Icon: PolicyOutlined,
+      },
     ],
   },
 ];

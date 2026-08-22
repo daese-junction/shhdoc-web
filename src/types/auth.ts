@@ -48,7 +48,22 @@ export interface CreateMemberRequest {
   email: string;
   password: string;
   name: string;
+  department?: string;
+  position?: string;
+}
+
+/**
+ * GET /companies/members, POST /companies/members 응답에 쓰는 구성원 정보.
+ * 비밀번호·토큰은 내려오지 않는다.
+ */
+export interface CompanyMember {
+  id: number;
+  email: string;
+  name: string;
+  department: string | null;
+  position: string | null;
+  role: ApiUserRole;
 }
 
 /** 생성 응답. role 은 항상 USER 로 내려온다. */
-export type CreateMemberResponse = ApiUser;
+export type CreateMemberResponse = CompanyMember;

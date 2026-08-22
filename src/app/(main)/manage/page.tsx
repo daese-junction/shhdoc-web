@@ -1,8 +1,16 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Loading } from "@/components/common";
+
+/** 관리 첫 화면은 따로 없다 — 기본으로 회사 정보를 보여준다. */
 export default function ManagePage() {
-  return (
-    <div className="flex flex-col gap-2 p-4 sm:p-6">
-      <h1 className="text-xl font-semibold text-text-primary">관리</h1>
-      <p className="text-text-secondary">관리 화면은 준비 중입니다.</p>
-    </div>
-  );
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/manage/company");
+  }, [router]);
+
+  return <Loading fullHeight />;
 }
