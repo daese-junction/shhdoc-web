@@ -5,14 +5,11 @@
  width="1112.000000pt" height="245.000000pt" viewBox="752 875 1112 245"
  preserveAspectRatio="xMidYMid meet">
 
-<!-- 글자 두께는 logoText.svg 의 원본 패스를 그대로 가져와 일치시킨다 -->
+<!-- 브랜드 패널 전용 배색. 패널이 항상 파란 배경이라 라이트/다크 구분 없이
+     Shh 는 흰색, Doc 은 배경(brand-500)보다 밝은 브랜드 블루로 고정한다. -->
 <style>
-  .shh-part { fill: #1b1f29; }
-  .doc-part { fill: #476cff; }
-  @media (prefers-color-scheme: dark) {
-    .shh-part { fill: #f2f4f8; }
-    .doc-part { fill: #6a8aff; }
-  }
+  .shh-part { fill: #ffffff; }
+  .doc-part { fill: #94adff; }
 </style>
 
 <g transform="translate(0.000000,2048.000000) scale(0.100000,-0.100000)" stroke="none">

@@ -146,15 +146,49 @@ function Card({
   description: string;
   children: React.ReactNode;
 }) {
+  // 마우스를 따라다니는 은은한 유리 반사광 — 카드 위에서만, 벗어나면 사라진다.
+  const [spotlight, setSpotlight] = useState({ x: 50, y: 50, opacity: 0 });
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setSpotlight({
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100,
+      opacity: 1,
+    });
+  };
+
   return (
-    <div className="rounded-2xl border border-border-tertiary bg-surface-primary p-6 shadow-sm sm:p-8">
-      <div className="mb-6 flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
-          {title}
-        </h1>
-        <p className="text-sm text-text-secondary">{description}</p>
+    // 그라데이션 테두리 — 안쪽에 배경을 한 겹 더 깔아 얇은 유리 엣지처럼 보이게 한다.
+    <div className="rounded-2xl bg-linear-to-br from-white/50 via-border-tertiary to-brand-300/40 p-px shadow-sm dark:from-white/15 dark:to-brand-500/30">
+      <div
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setSpotlight((prev) => ({ ...prev, opacity: 0 }))}
+        className="relative overflow-hidden rounded-[calc(1rem-1px)] bg-surface-primary/90 p-6 backdrop-blur-xl sm:p-8"
+      >
+        {/* 커서를 따라다니는 스포트라이트 */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 transition-opacity duration-500"
+          style={{
+            opacity: spotlight.opacity,
+            background: `radial-gradient(240px circle at ${spotlight.x}% ${spotlight.y}%, color-mix(in srgb, var(--color-brand-500) 14%, transparent), transparent 70%)`,
+          }}
+        />
+
+        {/* 가끔 한 번씩 스치는 반짝임 */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="animate-auth-shine absolute -inset-y-8 left-0 w-1/4 bg-linear-to-r from-transparent via-white/40 to-transparent dark:via-white/10" />
+        </div>
+
+        <div className="relative mb-6 flex flex-col gap-1.5">
+          <h1 className="text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
+            {title}
+          </h1>
+          <p className="text-sm text-text-secondary">{description}</p>
+        </div>
+        <div className="relative">{children}</div>
       </div>
-      {children}
     </div>
   );
 }

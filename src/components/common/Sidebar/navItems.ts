@@ -8,7 +8,6 @@ import DeleteOutlineOutlined from "@mui/icons-material/DeleteOutlineOutlined";
 import DraftsOutlined from "@mui/icons-material/DraftsOutlined";
 import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import InboxOutlined from "@mui/icons-material/InboxOutlined";
-import LanguageOutlined from "@mui/icons-material/LanguageOutlined";
 import PendingActionsOutlined from "@mui/icons-material/PendingActionsOutlined";
 import PeopleOutlined from "@mui/icons-material/PeopleOutlined";
 import SendOutlined from "@mui/icons-material/SendOutlined";
@@ -63,7 +62,6 @@ export const MANAGE_NAV_SECTIONS: NavSection[] = [
     title: "환경",
     items: [
       { href: "/manage/company", label: "회사 정보", Icon: BusinessOutlined },
-      { href: "/manage/domain", label: "도메인", Icon: LanguageOutlined },
     ],
   },
   {

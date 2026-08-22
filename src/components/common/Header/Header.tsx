@@ -82,13 +82,27 @@ export function Header() {
         <MenuOutlined fontSize="small" />
       </button>
 
-      <Link href={ROUTES.mail} aria-label="정션 홈" className="shrink-0">
+      <Link
+        href={ROUTES.mail}
+        aria-label="쉿독 홈"
+        className="flex shrink-0 items-center gap-1.5"
+      >
         <Image
-          src="/assets/images/logo.png"
-          alt="정션"
-          width={486}
-          height={91}
+          aria-hidden
+          src="/assets/images/dog.svg"
+          alt=""
+          width={1248}
+          height={1208}
           priority
+          className="h-5 w-5"
+        />
+        <Image
+          src="/assets/images/logo.svg"
+          alt="쉿독"
+          width={1112}
+          height={245}
+          priority
+          // 로고 svg 자체가 다크모드에 맞춰 색을 바꾸므로 여기서 따로 반전하지 않는다
           className="h-5 w-auto"
         />
       </Link>

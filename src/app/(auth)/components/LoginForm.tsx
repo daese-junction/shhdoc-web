@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Input, PasswordInput } from "@/components/common";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useUserStore } from "@/stores/useUserStore";
+import { useToastStore } from "@/stores/useToastStore";
 import { ROUTES } from "@/utils/routes";
 import {
   loginSchema,
@@ -25,6 +26,7 @@ export function LoginForm({ defaultEmail = "" }: LoginFormProps) {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
   const setUser = useUserStore((state) => state.setUser);
+  const showToast = useToastStore((state) => state.show);
   const [form, setForm] = useState<LoginInput>({
     email: defaultEmail,
     password: "",
@@ -33,8 +35,11 @@ export function LoginForm({ defaultEmail = "" }: LoginFormProps) {
   const [formError, setFormError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const update = (key: keyof LoginInput, value: string) =>
+  const update = (key: keyof LoginInput, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    // 고치는 즉시 해당 필드 에러를 지운다. 제출해야만 사라지면 답답하다.
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -59,11 +64,13 @@ export function LoginForm({ defaultEmail = "" }: LoginFormProps) {
 
       router.replace(ROUTES.mail);
     } catch (error) {
-      setFormError(
-        getErrorMessage(error, {
-          401: "이메일 또는 비밀번호가 올바르지 않습니다.",
-        })
-      );
+      const message = getErrorMessage(error, {
+        401: "이메일 또는 비밀번호가 올바르지 않습니다.",
+      });
+
+      setFormError(message);
+      // 응답이 없는 경우는 인터셉터가 이미 토스트를 띄우므로 빈 문자열이 온다.
+      if (message) showToast(message, "error");
     } finally {
       setIsSubmitting(false);
     }
