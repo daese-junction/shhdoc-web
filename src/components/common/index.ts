@@ -2,6 +2,7 @@ export { Button } from "./Button/Button";
 export { Input, type InputProps } from "./Input/Input";
 export { PasswordInput } from "./PasswordInput/PasswordInput";
 export { SearchInput } from "./SearchInput/SearchInput";
+export { Checkbox } from "./Checkbox/Checkbox";
 export { Modal } from "./Modal/Modal";
 export { Toast } from "./Toast/Toast";
 export { Dropdown } from "./Dropdown/Dropdown";
