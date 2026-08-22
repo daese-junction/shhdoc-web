@@ -28,7 +28,7 @@ export function Sidebar({
   return (
     <aside
       aria-label={label}
-      className={`hidden shrink-0 flex-col border-r border-border-subtle bg-surface-primary transition-[width] duration-200 md:flex ${
+      className={`hidden shrink-0 flex-col border-r border-border-tertiary bg-surface-primary transition-[width] duration-200 md:flex ${
         isSidebarOpen ? "w-60" : "w-16"
       } ${className}`}
     >

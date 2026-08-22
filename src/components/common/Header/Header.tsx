@@ -70,7 +70,7 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface-primary px-4 sm:px-6">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border-tertiary bg-surface-primary px-4 sm:px-6">
       {/* ── 좌측: 사이드내비 토글 + 로고 ────────────────── */}
       <button
         type="button"
