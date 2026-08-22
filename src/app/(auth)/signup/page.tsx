@@ -1,4 +1,4 @@
-import { AuthFlipCard } from "@/components/feature/auth/AuthFlipCard";
+import { AuthFlipCard } from "@/app/(auth)/components/AuthFlipCard";
 
 export default function SignupPage() {
   return <AuthFlipCard initialSide="signup" />;
