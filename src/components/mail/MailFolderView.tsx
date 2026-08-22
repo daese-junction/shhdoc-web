@@ -17,7 +17,7 @@ interface MailFolderViewProps {
 export function MailFolderView({ folder }: MailFolderViewProps) {
   return (
     // 목록이 본문 영역을 그대로 채운다 — 여백 없이 화면 끝까지
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-auto flex-1 flex-col">
       {/* 페이지 번호를 URL 에서 읽으므로 프리렌더용 경계가 필요하다 */}
       <Suspense fallback={<Loading />}>
         <FolderMailList folder={folder} />
