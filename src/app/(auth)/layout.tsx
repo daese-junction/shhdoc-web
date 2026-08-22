@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { GuestGuard } from "@/components/feature/auth/GuestGuard";
+import { GuestGuard } from "@/app/(auth)/components/GuestGuard";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
