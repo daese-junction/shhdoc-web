@@ -3,6 +3,7 @@ export type Area = "mail" | "manage";
 export const ROUTES = {
   mail: "/mail",
   mailWriting: "/mail/writing",
+  mailDrafts: "/mail/drafts",
   mailNotifications: "/mail/notifications",
   manage: "/manage",
   manageNotifications: "/manage/notifications",

@@ -7,6 +7,7 @@ export { Modal } from "./Modal/Modal";
 export { Toast } from "./Toast/Toast";
 export { Dropdown } from "./Dropdown/Dropdown";
 export { Popover } from "./Popover/Popover";
+export { Tooltip } from "./Tooltip/Tooltip";
 export { Toggle } from "./Toggle/Toggle";
 export { EmptyState } from "./EmptyState/EmptyState";
 export { Loading } from "./Loading/Loading";
