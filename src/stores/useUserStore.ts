@@ -8,6 +8,10 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** 아래 셋은 GET /auth/me 로만 채워진다 — 로그인 응답에는 없다. */
+  department?: string | null;
+  position?: string | null;
+  companyName?: string | null;
 }
 
 interface UserState {

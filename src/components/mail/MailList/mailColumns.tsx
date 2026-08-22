@@ -1,6 +1,8 @@
 import type { ListColumn } from "@/types/list";
 import type { Mail } from "@/types/mail";
 import { formatShortDateTime, formatFullDateTime } from "@/utils/formatDate";
+import { getMailBadgeStatus } from "../mailStatus";
+import { MailStatusBadge } from "../MailStatusBadge";
 
 /** 메일 목록의 열 구성. 읽지 않은 메일은 보낸이와 제목을 굵게 그린다. */
 export const MAIL_COLUMNS: ListColumn<Mail>[] = [
@@ -16,6 +18,18 @@ export const MAIL_COLUMNS: ListColumn<Mail>[] = [
         {mail.senderName}
       </span>
     ),
+  },
+  {
+    key: "status",
+    // 아이콘 + "문서 검토중" 이 한 줄에 들어가는 최소 폭. 수신함에서는 빈 칸이 된다.
+    className: "w-28 shrink-0",
+    render: (mail) => {
+      const status = getMailBadgeStatus(mail);
+      if (!status) return null;
+
+      // 행 자체가 클릭 대상이라 Tooltip 으로 감싸지 않고 네이티브 title 을 쓴다
+      return <MailStatusBadge status={status} title={mail.reviewReason} />;
+    },
   },
   {
     key: "title",

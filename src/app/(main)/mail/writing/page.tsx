@@ -1,14 +1,21 @@
 "use client";
 
+import AttachFile from "@mui/icons-material/AttachFile";
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import { Suspense, useEffect, useId, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Checkbox, Input, Loading, Tooltip } from "@/components/common";
 import { sanitizeMailBody } from "@/components/mail";
 import { getErrorMessage } from "@/api/axios";
 import {
-  createDraft,
   fetchEmailDetail,
   isEmailId,
   sendEmail,
@@ -25,8 +32,8 @@ import { AttachmentButton } from "./AttachmentButton";
 import { AttachmentList } from "./AttachmentList";
 import { RecipientInput } from "./RecipientInput";
 import { TextEditor } from "./TextEditor";
-import { useAttachmentReview } from "./useAttachmentReview";
 import { useAttachments } from "./useAttachments";
+import { useDraftEmailId } from "./useDraftEmailId";
 
 /** Tiptap 은 내용을 모두 지워도 빈 문단(`<p></p>`)을 남기므로 태그를 걷어내고 판단한다 */
 function isBlank(html: string): boolean {
@@ -194,31 +201,48 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
   const [subject, setSubject] = useState(draft.subject);
   const [isImportant, setIsImportant] = useState(false);
   const [body, setBody] = useState(draft.body);
-  const { attachments, totalSize, maxTotalSize, add, remove, clear } =
-    useAttachments();
+  // 첨부 버튼(제목 아래·툴바)이 이 입력을 대신 눌러 파일 탐색기를 연다
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // 첨부는 메일에 직접 붙으므로 파일을 고르기 전에 초안부터 만들어 둔다
+  const { emailId, ensure: ensureDraft } = useDraftEmailId(editingId);
   const {
-    status: reviewStatus,
-    results: reviewResults,
-    isReviewed,
-    review,
-  } = useAttachmentReview(attachments);
+    attachments,
+    totalSize,
+    maxTotalSize,
+    isUploading,
+    add,
+    remove,
+    clear,
+    retry,
+  } = useAttachments({ emailId });
 
-  const isReviewing = reviewStatus === "pending";
-  // 검토를 마쳤는데 통과하지 못했다면 유출 불가 문서가 섞여 있다는 뜻이다
-  const hasBlockedDocument = reviewStatus === "done" && !isReviewed;
-  const hasAttachment = attachments.length > 0;
   const isEmptyBody = isBlank(body);
   const hasRequiredFields = recipients.length > 0 && Boolean(subject.trim());
-  // 첨부가 없으면 검토가 자동으로 통과 처리되므로 바로 보낼 수 있다
-  const canSend = hasRequiredFields && !isEmptyBody && isReviewed;
+  // 올라가는 중에 보내면 첨부가 빠진 채 승인으로 넘어간다
+  const canSend = hasRequiredFields && !isEmptyBody && !isUploading;
   const isBusy = isSavingDraft || isSending;
 
-  // 개인별·중요·첨부는 초안 생성 스펙(POST /emails)에 없어 아직 보내지 않는다
+  // 개인별·중요는 초안 생성 스펙(POST /emails)에 없어 아직 보내지 않는다.
+  // 첨부는 이 본문이 아니라 /emails/{id}/attachments 로 따로 붙는다.
   const buildPayload = (): EmailPayload => ({
     subject,
     body,
     recipients: toRecipients(recipients),
   });
+
+  /** 툴바 첨부 버튼과 제목 아래 버튼이 같은 파일 입력을 연다 */
+  const openFilePicker = () => fileInputRef.current?.click();
+
+  /** 파일은 고르는 즉시 올라가므로 그 전에 붙일 초안 id 부터 확보해 둔다 */
+  const handleFilesPicked = (event: ChangeEvent<HTMLInputElement>) => {
+    const { files } = event.target;
+    if (files && files.length > 0) {
+      void ensureDraft(buildPayload());
+      add(files);
+    }
+    // 같은 파일을 다시 고를 수 있도록 값을 비운다
+    event.target.value = "";
+  };
 
   /** 네트워크 오류는 인터셉터가 이미 토스트로 알렸으므로 빈 메시지면 넘어간다 */
   const toastError = (error: unknown, fallback: string) => {
@@ -230,8 +254,15 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
     setIsSavingDraft(true);
     try {
       // 초안은 수신자가 없어도 저장된다 — 한 명 이상이어야 하는 건 발송 시점이다.
-      if (editingId) await updateDraft(editingId, buildPayload());
-      else await createDraft(buildPayload());
+      const payload = buildPayload();
+      // 첨부를 붙이며 이미 만들어 둔 초안이 있으면 새로 만들지 않고 그것을 고친다
+      const { id, created } = await ensureDraft(payload);
+      // 실패 사유는 ensureDraft 가 이미 토스트로 알렸다
+      if (id === null) {
+        setIsSavingDraft(false);
+        return;
+      }
+      if (!created) await updateDraft(id, payload);
 
       showToast("임시보관함에 저장했습니다.", "success");
       // 임시보관함으로 넘어가면 이 화면은 언마운트되므로 로딩을 되돌리지 않는다
@@ -247,26 +278,24 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
     setIsSending(true);
     try {
       const payload = buildPayload();
-      let targetId = editingId;
-
-      if (targetId) await updateDraft(targetId, payload);
-      else targetId = (await createDraft(payload)).id;
+      // 첨부가 붙어 있다면 그 초안이 곧 보낼 메일이다
+      const { id: targetId, created } = await ensureDraft(payload);
+      // 실패 사유는 ensureDraft 가 이미 토스트로 알렸다
+      if (targetId === null) {
+        setIsSending(false);
+        return;
+      }
+      if (!created) await updateDraft(targetId, payload);
 
       const sent = await sendEmail(targetId);
       // 결재가 필요하면 곧바로 SENT 가 되지 않고 BLOCKED(승인 대기)로 떨어진다
       const isDelivered = sent.status === "SENT";
       const message = isDelivered
         ? "메일을 발송했습니다."
-        : "발송 승인을 요청했습니다. 관리자 승인 후 발송됩니다.";
+        : "발송을 요청했습니다. AI 검증과 관리자 승인을 거쳐 발송됩니다.";
 
       router.push(isDelivered ? ROUTES.mailSent : ROUTES.mailPending);
-      showToast(
-        // 첨부 업로드 스펙이 아직 없어 파일은 함께 올라가지 않는다
-        hasAttachment
-          ? `${message} 첨부파일은 아직 함께 전송되지 않습니다.`
-          : message,
-        "success",
-      );
+      showToast(message, "success");
     } catch (error) {
       toastError(error, "발송에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       setIsSending(false);
@@ -280,44 +309,17 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
           {editingId ? "초안 수정" : "메일 쓰기"}
         </h1>
 
-        <div className="flex items-center gap-2">
-          <Tooltip title="첨부파일을 추가하는 경우 검토 후 메일 전송이 가능합니다">
-            {/* 키보드 사용자도 볼 수 있게 버튼으로 둔다 — 포커스에도 말풍선이 뜬다 */}
-            <button
-              type="button"
-              aria-label="검토 안내"
-              className="flex size-6 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-primary"
-            >
-              <HelpOutlineRoundedIcon fontSize="small" />
-            </button>
-          </Tooltip>
-
-          {/* 첨부 문서의 외부 유출 가능 여부를 서버에 물어본다 — 첨부가 있을 때만 필요하다 */}
-          {hasAttachment && (
-            <Button
-              type="button"
-              loading={isReviewing}
-              disabled={isReviewed}
-              onClick={review}
-            >
-              {isReviewing ? "검토 중…" : isReviewed ? "검토 완료" : "검토"}
-            </Button>
-          )}
-        </div>
+        <Tooltip title="보내기를 누르면 AI 검증과 관리자 승인을 거쳐 발송됩니다. 진행 상황은 승인대기함의 상태 뱃지로 확인할 수 있습니다.">
+          {/* 키보드 사용자도 볼 수 있게 버튼으로 둔다 — 포커스에도 말풍선이 뜬다 */}
+          <button
+            type="button"
+            aria-label="발송 절차 안내"
+            className="flex size-6 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-primary"
+          >
+            <HelpOutlineRoundedIcon fontSize="small" />
+          </button>
+        </Tooltip>
       </div>
-
-      {hasBlockedDocument && (
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-md bg-red-100 px-3 py-2 text-sm text-red-700"
-        >
-          <WarningAmberRoundedIcon fontSize="small" className="shrink-0" />
-          <span>
-            외부유출이 불가능한 문서가 포함되어있습니다. 문서 내용을 검토하거나
-            관리자의 승인을 받아주세요
-          </span>
-        </div>
-      )}
 
       <div className="flex flex-col gap-3 rounded-lg bg-surface-primary p-4">
         <ComposeField
@@ -356,6 +358,25 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
             />
           )}
         </ComposeField>
+
+        {/* 툴바까지 내려가지 않아도 여기서 바로 붙일 수 있게 둔다 (같은 파일 입력을 연다) */}
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+          {/* 위 두 줄의 라벨 칸과 폭을 맞춰 버튼이 입력창 왼쪽 끝에 선다 */}
+          <div aria-hidden className="hidden shrink-0 sm:block sm:w-44" />
+
+          <div className="min-w-0 flex-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={openFilePicker}
+            >
+              <AttachFile fontSize="small" />
+              파일 첨부
+              {attachments.length > 0 && ` (${attachments.length})`}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <TextEditor
@@ -364,7 +385,9 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
         characterLimit={10000}
         minHeightClass="min-h-96"
         onChange={setBody}
-        toolbarExtra={<AttachmentButton onSelect={add} />}
+        toolbarExtra={
+          <AttachmentButton onClick={openFilePicker} />
+        }
         belowToolbar={
           <AttachmentList
             attachments={attachments}
@@ -372,9 +395,17 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
             maxTotalSize={maxTotalSize}
             onRemove={remove}
             onClearAll={clear}
-            reviewResults={reviewResults}
+            onRetry={retry}
           />
         }
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleFilesPicked}
       />
 
       <div className="flex justify-end gap-2">
@@ -382,7 +413,7 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
           type="button"
           variant="outline"
           loading={isSavingDraft}
-          disabled={isSending}
+          disabled={isSending || isUploading}
           onClick={handleSaveDraft}
         >
           {isSavingDraft ? "저장 중…" : "임시저장"}

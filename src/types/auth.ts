@@ -14,6 +14,16 @@ export interface Company {
   emailDomain: string;
 }
 
+/**
+ * GET /auth/me 응답. 로그인 응답(`ApiUser`)에 소속 정보가 더 붙는다.
+ * 부서·직급은 안 채워진 계정이 있어 비어 올 수 있다.
+ */
+export interface ApiMe extends ApiUser {
+  department?: string | null;
+  position?: string | null;
+  company: Company;
+}
+
 /** POST /auth/login, POST /auth/refresh 응답 */
 export interface TokenPair {
   accessToken: string;
