@@ -2,7 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Loading } from "@/components/common";
+import { Loading } from "@/components/common/Loading/Loading";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 /**

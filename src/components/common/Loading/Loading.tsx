@@ -20,7 +20,7 @@ export function Loading({
       <div
         role="status"
         aria-label={message ?? "불러오는 중"}
-        className="h-8 w-8 animate-spin rounded-full border-2 border-border-primary border-t-brand-500"
+        className="h-8 w-8 animate-spin rounded-full border-2 border-border-tertiary border-t-brand-500"
       />
       {message && (
         <p className="text-sm text-text-secondary">{message}</p>

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Button, Input, PasswordInput } from "@/components/common";
 import { AuthCard } from "@/components/feature/auth/AuthCard";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useUserStore } from "@/stores/useUserStore";
+import { ROUTES } from "@/utils/routes";
 import {
   loginSchema,
   getFieldErrors,
@@ -18,6 +20,7 @@ const initialForm: LoginInput = { email: "", password: "" };
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
+  const setUser = useUserStore((state) => state.setUser);
   const [form, setForm] = useState<LoginInput>(initialForm);
   const [errors, setErrors] = useState<FieldErrors<LoginInput>>({});
 
@@ -35,10 +38,20 @@ export default function LoginPage() {
 
     setErrors({});
 
-    // TODO: src/api/auth.ts 의 login() 으로 교체할 것.
-    // 지금은 화면 흐름을 확인할 수 있도록 임시 토큰을 넣는다.
+    // TODO: src/api/auth.ts 의 login() + src/api/user.ts 의 내 정보 조회로 교체할 것.
+    // 지금은 화면 흐름을 확인할 수 있도록 임시 토큰과 유저를 넣는다.
+    // 역할은 서버가 내려줄 값이라, 그때까지는 이메일에 "admin" 이 들어가면
+    // 관리자로 본다 (헤더의 메일/관리 토글과 /manage 접근을 확인하기 위한 임시 규칙).
     login("temp-access-token");
-    router.replace("/");
+    setUser({
+      id: "temp-user",
+      name: result.data.email.split("@")[0],
+      email: result.data.email,
+      role: result.data.email.toLowerCase().includes("admin")
+        ? "admin"
+        : "user",
+    });
+    router.replace(ROUTES.mail);
   };
 
   return (

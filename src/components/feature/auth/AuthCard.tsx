@@ -25,7 +25,7 @@ export function AuthCard({
           )}
         </div>
 
-        <div className="rounded-xl border border-border-primary bg-surface-primary p-5 sm:p-6">
+        <div className="rounded-xl border border-border-tertiary bg-surface-primary p-5 sm:p-6">
           {children}
         </div>
 

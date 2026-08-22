@@ -82,7 +82,12 @@
   --color-surface-secondary: var(--color-gray-50);
   --color-surface-tertiary: var(--color-gray-100);
 
-  --color-border-primary: var(--color-gray-200);
+  /* text 와 같은 방향으로 읽는다 — primary 가 가장 강하고 tertiary 가 가장 약하다.
+     화면을 나누기만 하는 구분선(헤더·사이드내비·입력창)은 tertiary,
+     시선을 잡아야 하는 경계만 secondary 이상을 쓴다. */
+  --color-border-primary: var(--color-gray-400);
   --color-border-secondary: var(--color-gray-300);
-  --color-border-tertiary: var(--color-gray-400);
+  --color-border-tertiary: var(--color-gray-200);
+  /* tertiary 보다 한 단계 더 약한 경계. 큰 면을 아주 옅게 나눌 때만. */
+  --color-border-subtle: var(--color-gray-100);
 }

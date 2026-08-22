@@ -59,7 +59,7 @@ export function Input({
             ${
               error
                 ? "border-error focus:border-error focus:ring-error/25"
-                : "border-border-primary focus:border-brand-500 focus:ring-brand-500/25"
+                : "border-border-tertiary focus:border-brand-500 focus:ring-brand-500/25"
             }
             ${className}`}
           {...props}

@@ -2,7 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Loading } from "@/components/common";
+import { Loading } from "@/components/common/Loading/Loading";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 /** 이미 로그인한 사용자가 로그인·회원가입 화면에 머무르지 않도록 되돌린다. */

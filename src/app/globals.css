@@ -88,6 +88,13 @@ samp {
   background: transparent;
 }
 
+/* Tailwind preflight 가 button 을 cursor:default 로 되돌리므로 다시 손가락으로 */
+button:not(:disabled),
+summary,
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
 @utility scrollbar-none {
   scrollbar-width: none;
   &::-webkit-scrollbar {
