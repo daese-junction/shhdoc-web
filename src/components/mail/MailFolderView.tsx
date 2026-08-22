@@ -3,9 +3,15 @@
 import { Suspense, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loading } from "@/components/common";
+import {
+  deleteDraft,
+  fetchEmailPage,
+  invalidateEmails,
+  isEmailFolder,
+} from "@/api/emails";
 import { createMailFolderApi } from "@/mocks/mail";
-import type { Mail, MailFolder } from "@/types/mail";
-import { getMailDetailRoute } from "@/utils/routes";
+import type { FetchMailPage, Mail, MailFolder } from "@/types/mail";
+import { getMailComposeRoute, getMailDetailRoute } from "@/utils/routes";
 import { MAIL_FOLDER_META } from "./mailFolders";
 import { MailList } from "./MailList/MailList";
 
@@ -31,11 +37,26 @@ function FolderMailList({ folder }: MailFolderViewProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // 수신함·휴지통은 아직 API 가 없어 목 데이터를 그대로 쓴다
+  const usesEmails = isEmailFolder(folder);
   // MailList 가 fetchPage 를 effect 의존성으로 쓰므로 참조를 고정한다
-  const api = useMemo(() => createMailFolderApi(folder), [folder]);
+  const mock = useMemo(() => createMailFolderApi(folder), [folder]);
+  const fetchPage = useMemo<FetchMailPage>(
+    () =>
+      usesEmails ? (params) => fetchEmailPage(folder, params) : mock.fetchPage,
+    [usesEmails, folder, mock],
+  );
 
   const meta = MAIL_FOLDER_META[folder];
   const isTrash = folder === "trash";
+  // 스펙상 DELETE 는 초안 전용이라 발신함·승인대기에서는 삭제를 내주지 않는다
+  const isDrafts = folder === "drafts";
+
+  const deleteDrafts = useCallback(
+    (ids: string[]) =>
+      Promise.all(ids.map((id) => deleteDraft(Number(id)))).then(() => undefined),
+    [],
+  );
 
   // 상세를 열었다 돌아와도 보던 페이지가 유지되도록 URL 에 남긴다
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
@@ -56,8 +77,14 @@ function FolderMailList({ folder }: MailFolderViewProps) {
     [router, pathname, search],
   );
 
+  // 초안은 읽을 게 아니라 이어서 쓰는 것이므로 상세 대신 작성 화면을 연다
   const openMail = useCallback(
-    (mail: Mail) => router.push(getMailDetailRoute(mail.id)),
+    (mail: Mail) =>
+      router.push(
+        mail.status === "DRAFT"
+          ? getMailComposeRoute("edit", mail.id)
+          : getMailDetailRoute(mail.id),
+      ),
     [router],
   );
 
@@ -68,12 +95,15 @@ function FolderMailList({ folder }: MailFolderViewProps) {
       variant={isTrash ? "trash" : "default"}
       page={page}
       onPageChange={changePage}
-      fetchPage={api.fetchPage}
-      onMarkAsRead={api.markAsRead}
-      onDelete={isTrash ? undefined : api.moveToTrash}
-      onPermanentDelete={isTrash ? api.permanentlyDelete : undefined}
-      onRestore={api.restore}
+      fetchPage={fetchPage}
+      onMarkAsRead={usesEmails ? undefined : mock.markAsRead}
+      onDelete={
+        isDrafts ? deleteDrafts : usesEmails || isTrash ? undefined : mock.moveToTrash
+      }
+      onPermanentDelete={isTrash ? mock.permanentlyDelete : undefined}
+      onRestore={usesEmails ? undefined : mock.restore}
       onOpenMail={openMail}
+      onInvalidate={usesEmails ? invalidateEmails : undefined}
       emptyTitle={meta.emptyTitle}
       emptyDescription={meta.emptyDescription}
     />

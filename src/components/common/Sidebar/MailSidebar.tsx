@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import EditOutlined from "@mui/icons-material/EditOutlined";
+import { useMailFolderCounts } from "@/hooks/useMailFolderCounts";
 import { useAppStore } from "@/stores/useAppStore";
 import { ROUTES } from "@/utils/routes";
 import { Button } from "../Button/Button";
@@ -17,6 +18,7 @@ interface MailSidebarProps {
 export function MailSidebar({ onCompose }: MailSidebarProps) {
   const isSidebarOpen = useAppStore((state) => state.isSidebarOpen);
   const router = useRouter();
+  const counts = useMailFolderCounts();
 
   return (
     <Sidebar
@@ -34,8 +36,13 @@ export function MailSidebar({ onCompose }: MailSidebarProps) {
         </Button>
       }
     >
-      {MAIL_NAV_ITEMS.map(({ Icon, ...item }) => (
-        <SidebarItem key={item.href} icon={<Icon fontSize="small" />} {...item} />
+      {MAIL_NAV_ITEMS.map(({ Icon, countKey, ...item }) => (
+        <SidebarItem
+          key={item.href}
+          icon={<Icon fontSize="small" />}
+          count={countKey && counts ? counts[countKey] : undefined}
+          {...item}
+        />
       ))}
     </Sidebar>
   );

@@ -1,7 +1,10 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 
-/** 백엔드 주소. 미설정이면 같은 오리진의 `/api` 를 쓴다. */
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
+/** 백엔드 주소. 둘 다 없으면 같은 오리진의 `/api` 를 쓴다. */
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "/api";
 
 export class ApiError extends Error {
   readonly status: number;
