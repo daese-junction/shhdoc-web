@@ -64,6 +64,9 @@ export const createMemberSchema = z.object({
     .string()
     .min(1, "초기 비밀번호를 입력해주세요.")
     .min(8, "8자 이상 입력해주세요."),
+  // 부서·직책은 아직 조직도가 없는 회사도 있어 선택 입력으로 둔다.
+  department: z.string().trim().max(30, "30자 이하로 입력해주세요."),
+  position: z.string().trim().max(20, "20자 이하로 입력해주세요."),
 });
 
 /** 직책 추가 폼. 우선순위는 숫자가 작을수록 상위 직책이다. */
@@ -93,6 +96,16 @@ export type SignupInput = z.infer<typeof signupSchema>;
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
+
+/** 쉼표로 구분된 키워드 입력을 정리된 배열로 바꾼다. 빈 항목·중복은 제거한다. */
+export function parseKeywords(input: string): string[] {
+  const keywords = input
+    .split(",")
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
+
+  return [...new Set(keywords)];
+}
 
 /** 필드별 첫 번째 에러 메시지만 뽑아낸다. */
 export type FieldErrors<T> = Partial<Record<keyof T, string>>;

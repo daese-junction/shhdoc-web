@@ -1,24 +1,29 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import axios from "axios";
 import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
-import { Button, Input, Modal, PasswordInput } from "@/components/common";
+import { Button, Input, Loading, Modal, PasswordInput } from "@/components/common";
 import { getErrorMessage } from "@/api/axios";
 import { useToastStore } from "@/stores/useToastStore";
-import { INITIAL_MEMBERS, type Member } from "@/mocks/members";
-import type { ApiUser } from "@/types/auth";
+import type { ApiUserRole, CompanyMember } from "@/types/auth";
 import {
   createMemberSchema,
   getFieldErrors,
   type CreateMemberInput,
   type FieldErrors,
 } from "@/utils/validation";
-import { createMember } from "./api";
+import { createMember, listMembers } from "./api";
 
-const initialForm: CreateMemberInput = { email: "", name: "", password: "" };
+const initialForm: CreateMemberInput = {
+  email: "",
+  name: "",
+  password: "",
+  department: "",
+  position: "",
+};
 
-const ROLE_LABEL: Record<ApiUser["role"], string> = {
+const ROLE_LABEL: Record<ApiUserRole, string> = {
   ADMIN: "관리자",
   USER: "구성원",
 };
@@ -26,13 +31,36 @@ const ROLE_LABEL: Record<ApiUser["role"], string> = {
 export default function ManageMembersPage() {
   const showToast = useToastStore((state) => state.show);
 
-  // 목록 조회 API 가 아직 없어 목데이터로 시작하고, 추가에 성공하면 앞에 끼워 넣는다.
-  const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
+  const [members, setMembers] = useState<CompanyMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState<CreateMemberInput>(initialForm);
   const [errors, setErrors] = useState<FieldErrors<CreateMemberInput>>({});
   const [formError, setFormError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listMembers()
+      .then((result) => {
+        if (cancelled) return;
+        setMembers(result);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        // 응답 자체가 없는 네트워크 오류는 인터셉터가 이미 토스트로 안내했다.
+        const message = getErrorMessage(error, {}, "구성원 목록을 불러오지 못했어요.");
+        if (message) showToast(message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast]);
 
   const update = (key: keyof CreateMemberInput, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -59,10 +87,15 @@ export default function ManageMembersPage() {
 
     try {
       // POST /companies/members — 소속 회사는 토큰에서 읽으므로 남의 회사엔 만들 수 없다.
-      const member = await createMember(result.data);
+      // 부서·직책을 비워두면 서버에 아예 보내지 않는다.
+      const { department, position, ...required } = result.data;
+      const member = await createMember({
+        ...required,
+        ...(department && { department }),
+        ...(position && { position }),
+      });
 
-      // 생성 응답에는 소속 조직이 없다 — 조직 배정 전까지는 미배정으로 둔다.
-      setMembers((prev) => [{ ...member, departmentId: null }, ...prev]);
+      setMembers((prev) => [...prev, member]);
       showToast(`${member.email} 계정이 만들어졌어요.`, "success");
       closeModal();
     } catch (error) {
@@ -100,30 +133,55 @@ export default function ManageMembersPage() {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border-tertiary">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-surface-secondary text-text-secondary">
-            <tr>
-              <th className="px-4 py-2.5 font-medium">이름</th>
-              <th className="px-4 py-2.5 font-medium">이메일</th>
-              <th className="px-4 py-2.5 font-medium">역할</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-tertiary">
-            {members.map((member) => (
-              <tr key={member.id}>
-                <td className="px-4 py-2.5 text-text-primary">{member.name}</td>
-                <td className="px-4 py-2.5 text-text-secondary">
-                  {member.email}
-                </td>
-                <td className="px-4 py-2.5 text-text-secondary">
-                  {ROLE_LABEL[member.role]}
-                </td>
+      {isLoading ? (
+        <Loading />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border-tertiary">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-surface-secondary text-text-secondary">
+              <tr>
+                <th className="px-4 py-2.5 font-medium">이름</th>
+                <th className="px-4 py-2.5 font-medium">이메일</th>
+                <th className="px-4 py-2.5 font-medium">부서</th>
+                <th className="px-4 py-2.5 font-medium">직책</th>
+                <th className="px-4 py-2.5 font-medium">역할</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-border-tertiary">
+              {members.length > 0 ? (
+                members.map((member) => (
+                  <tr key={member.id}>
+                    <td className="px-4 py-2.5 text-text-primary">
+                      {member.name}
+                    </td>
+                    <td className="px-4 py-2.5 text-text-secondary">
+                      {member.email}
+                    </td>
+                    <td className="px-4 py-2.5 text-text-secondary">
+                      {member.department ?? "-"}
+                    </td>
+                    <td className="px-4 py-2.5 text-text-secondary">
+                      {member.position ?? "-"}
+                    </td>
+                    <td className="px-4 py-2.5 text-text-secondary">
+                      {ROLE_LABEL[member.role]}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-6 text-center text-text-tertiary"
+                  >
+                    구성원이 없어요.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <Modal open={isModalOpen} onClose={closeModal} title="구성원 추가">
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2">
@@ -147,6 +205,24 @@ export default function ManageMembersPage() {
             value={form.name}
             onChange={(event) => update("name", event.target.value)}
             error={errors.name}
+          />
+
+          <Input
+            label="부서"
+            placeholder="영업팀"
+            value={form.department}
+            onChange={(event) => update("department", event.target.value)}
+            error={errors.department}
+            hint="선택 입력"
+          />
+
+          <Input
+            label="직책"
+            placeholder="대리"
+            value={form.position}
+            onChange={(event) => update("position", event.target.value)}
+            error={errors.position}
+            hint="선택 입력"
           />
 
           <PasswordInput
