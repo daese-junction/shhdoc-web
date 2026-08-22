@@ -2,8 +2,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-/** 페이지를 넘겨도 유지되는 메일 선택 상태 */
-export function useMailSelection() {
+/** 페이지를 넘겨도 유지되는 목록 행 선택 상태 */
+export function useListSelection() {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -42,4 +42,4 @@ export function useMailSelection() {
   return selection;
 }
 
-export type MailSelection = ReturnType<typeof useMailSelection>;
+export type ListSelection = ReturnType<typeof useListSelection>;

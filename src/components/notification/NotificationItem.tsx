@@ -4,7 +4,7 @@ import CancelOutlined from "@mui/icons-material/CancelOutlined";
 import CheckCircleOutlined from "@mui/icons-material/CheckCircleOutlined";
 import type SvgIcon from "@mui/material/SvgIcon";
 import type { Notification, NotificationType } from "@/types/notification";
-import { formatMailDate, formatMailDateTime } from "@/utils/formatDate";
+import { formatShortDateTime, formatFullDateTime } from "@/utils/formatDate";
 
 interface TypeMeta {
   Icon: typeof SvgIcon;
@@ -69,10 +69,10 @@ export function NotificationItem({
 
         <time
           dateTime={notification.createdAt}
-          title={formatMailDateTime(notification.createdAt)}
+          title={formatFullDateTime(notification.createdAt)}
           className="mt-0.5 shrink-0 text-xs whitespace-nowrap text-text-tertiary"
         >
-          {formatMailDate(notification.createdAt)}
+          {formatShortDateTime(notification.createdAt)}
         </time>
 
         {/* 읽어도 자리가 밀리지 않도록 점 자리는 항상 잡아둔다 */}
