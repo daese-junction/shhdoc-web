@@ -8,8 +8,8 @@ export function Sidebar() {
   if (!isSidebarOpen) return null;
 
   return (
-    <aside className="w-56 shrink-0 border-r border-border bg-surface p-4">
-      <nav className="flex flex-col gap-2 text-sm text-text" />
+    <aside className="hidden w-56 shrink-0 border-r border-border-primary bg-surface-primary p-4 md:block">
+      <nav className="flex flex-col gap-2 text-sm text-text-primary" />
     </aside>
   );
 }

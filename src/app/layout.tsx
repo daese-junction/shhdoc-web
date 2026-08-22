@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
-import { Layout } from "@/components/common";
+import { Toast } from "@/components/common";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,12 +22,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         <AppRouterCacheProvider>
-          <Layout>{children}</Layout>
+          {children}
+          <Toast />
         </AppRouterCacheProvider>
       </body>
     </html>

@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Header } from "../Header/Header";
 import { Footer } from "../Footer/Footer";
 import { Sidebar } from "../Sidebar/Sidebar";
-import { Toast } from "../Toast/Toast";
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,14 +9,14 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-full flex flex-col">
+    <div className="flex min-h-dvh flex-col">
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-4">{children}</main>
+        {/* 여백은 각 페이지가 직접 잡는다 */}
+        <main className="flex min-w-0 flex-1 flex-col">{children}</main>
       </div>
       <Footer />
-      <Toast />
     </div>
   );
 }

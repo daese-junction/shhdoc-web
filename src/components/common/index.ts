@@ -1,5 +1,7 @@
 export { Button } from "./Button/Button";
-export { Input } from "./Input/Input";
+export { Input, type InputProps } from "./Input/Input";
+export { PasswordInput } from "./PasswordInput/PasswordInput";
+export { SearchInput } from "./SearchInput/SearchInput";
 export { Modal } from "./Modal/Modal";
 export { Toast } from "./Toast/Toast";
 export { Dropdown } from "./Dropdown/Dropdown";
