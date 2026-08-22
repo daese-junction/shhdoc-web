@@ -6,9 +6,13 @@ import { formatShortDateTime, formatFullDateTime } from "@/utils/formatDate";
 export const MAIL_COLUMNS: ListColumn<Mail>[] = [
   {
     key: "sender",
-    className: "w-32 shrink-0 truncate text-text-primary",
+    // 발신함은 이 자리에 받는 사람 주소가 온다 — 이름보다 길어 폭을 더 준다
+    className: "w-32 shrink-0 truncate text-text-primary sm:w-56",
     render: (mail) => (
-      <span className={mail.isRead ? "" : "font-semibold"}>
+      <span
+        title={mail.senderName}
+        className={mail.isRead ? "" : "font-semibold"}
+      >
         {mail.senderName}
       </span>
     ),

@@ -2,9 +2,9 @@
 
 import { useRef, type ChangeEvent } from "react";
 import { Checkbox } from "@/components/common";
-import type { EmailStatus, Mail } from "@/types/mail";
+import type { Mail } from "@/types/mail";
 import { formatShortDateTime, formatFullDateTime } from "@/utils/formatDate";
-import { MAIL_STATUS_META, type MailStatusMeta } from "../mailStatus";
+import { MailStatusBadge } from "../MailStatusBadge";
 
 interface MailListItemProps {
   mail: Mail;
@@ -83,23 +83,5 @@ export function MailListItem({
         {formatShortDateTime(mail.receivedAt)}
       </time>
     </li>
-  );
-}
-
-interface MailStatusBadgeProps {
-  status: EmailStatus;
-}
-
-/** 발신 계열 메일의 상태 뱃지. 서버가 모르는 상태를 주면 그리지 않는다. */
-function MailStatusBadge({ status }: MailStatusBadgeProps) {
-  const meta = MAIL_STATUS_META[status] as MailStatusMeta | undefined;
-  if (!meta) return null;
-
-  return (
-    <span
-      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[0.6875rem] font-medium leading-none text-white ${meta.className}`}
-    >
-      {meta.label}
-    </span>
   );
 }
