@@ -96,3 +96,22 @@ export interface EmailRecipient {
   address: string;
   type: RecipientType;
 }
+
+/** 첨부 파일 검사 진행 상태 */
+export type AttachmentScanStatus = "PENDING" | "DONE" | "FAILED";
+
+/** 검사 결과. 검사가 끝나기 전에는 비어 있다. */
+export type AttachmentVerdict = "ALLOWED" | "BLOCKED";
+
+/** GET /emails/{emailId}/attachments 응답 한 건 */
+export interface EmailAttachment {
+  id: number;
+  filename: string;
+  sizeBytes: number;
+  scanStatus: AttachmentScanStatus;
+  /** 검사 전에는 null 이다 */
+  verdict?: AttachmentVerdict | null;
+  /** 판정 근거 */
+  reason?: string | null;
+  createdAt: string;
+}

@@ -106,6 +106,13 @@ let inflight: Promise<EmailSummary[]> | null = null;
 /** 조회 도중에 목록이 바뀌었는지 판별한다 */
 let generation = 0;
 
+/**
+ * 목록 응답에는 수신자 수만 있어 주소는 상세를 봐야 안다.
+ * 같은 메일을 두 번 묻지 않도록 한 번 받은 것을 들고 있는다 — 목록과 함께 비운다.
+ */
+const detailCache = new Map<number, EmailDetail>();
+const detailInflight = new Map<number, Promise<EmailDetail>>();
+
 /** 목록이 바뀌었을 때 다시 그려야 하는 곳들 (사이드네비 뱃지 등) */
 const listeners = new Set<() => void>();
 
@@ -123,6 +130,7 @@ export function subscribeEmails(listener: () => void): () => void {
 /** 목록을 바꾼 뒤에는 반드시 불러 다음 조회가 서버를 다시 보게 한다. */
 export function invalidateEmails(): void {
   cache = null;
+  detailCache.clear();
   generation += 1;
   listeners.forEach((notify) => notify());
 }
@@ -147,6 +155,52 @@ function loadEmails(): Promise<EmailSummary[]> {
     });
 
   return inflight;
+}
+
+/** 상세 한 통. 캐시에 있으면 그대로 쓰고, 같은 메일을 동시에 물으면 요청을 합친다. */
+function loadEmailDetail(id: number): Promise<EmailDetail> {
+  const cached = detailCache.get(id);
+  if (cached) return Promise.resolve(cached);
+
+  const pending = detailInflight.get(id);
+  if (pending) return pending;
+
+  const request = fetchEmailDetail(id)
+    .then((detail) => {
+      detailCache.set(id, detail);
+      return detail;
+    })
+    .finally(() => {
+      detailInflight.delete(id);
+    });
+
+  detailInflight.set(id, request);
+  return request;
+}
+
+/**
+ * 지금 페이지에 놓인 메일의 수신자만 채운다.
+ * 한 건을 못 받아도 그 줄만 수로 남을 뿐 목록 전체는 그대로 뜬다.
+ */
+function loadRecipients(
+  emails: EmailSummary[],
+): Promise<Map<number, EmailRecipient[]>> {
+  return Promise.all(
+    emails.map((email) =>
+      loadEmailDetail(email.id)
+        .then(
+          (detail) => [email.id, detail.recipients] as [number, EmailRecipient[]],
+        )
+        .catch(() => null),
+    ),
+  ).then(
+    (entries) =>
+      new Map(
+        entries.filter(
+          (entry): entry is [number, EmailRecipient[]] => entry !== null,
+        ),
+      ),
+  );
 }
 
 /** 사이드네비 뱃지가 쓰는 폴더별 건수. */
@@ -195,11 +249,29 @@ export function isEmailFolder(folder: MailFolder): boolean {
   );
 }
 
-/** 목록 한 줄로 옮긴다. 내가 쓴 메일이라 보낸이 자리에는 수신자 수를 쓴다. */
-export function toMail(email: EmailSummary): Mail {
+/**
+ * 목록의 보낸이 자리에 들어갈 글. 내가 쓴 메일이라 받는 사람을 쓴다.
+ * 한 명이면 주소를 그대로 쓴다 — "받는사람 1명" 은 누구에게 보냈는지를 감추기만 한다.
+ * 주소를 못 받아왔을 때만 목록 응답에 있는 수로 물러난다.
+ */
+function toRecipientLabel(
+  count: number,
+  recipients?: EmailRecipient[],
+): string {
+  if (!recipients || recipients.length === 0)
+    return count > 0 ? `받는사람 ${count}명` : "받는사람 없음";
+
+  const [first, ...rest] = recipients;
+  return rest.length === 0
+    ? first.address
+    : `${first.address} 외 ${rest.length}명`;
+}
+
+/** 목록 한 줄로 옮긴다. 내가 쓴 메일이라 보낸이 자리에는 받는 사람이 온다. */
+export function toMail(email: EmailSummary, recipients?: EmailRecipient[]): Mail {
   return {
     id: String(email.id),
-    senderName: `받는사람 ${email.recipientCount}명`,
+    senderName: toRecipientLabel(email.recipientCount, recipients),
     title: email.subject,
     // 아직 보내지 않았으면 작성 시각이 기준이 된다
     receivedAt: email.sentAt ?? email.createdAt,
@@ -232,31 +304,37 @@ export function toMailDetail(email: EmailDetail): MailDetail {
   };
 }
 
-const byReceivedAtDesc = (a: Mail, b: Mail) =>
-  Date.parse(b.receivedAt) - Date.parse(a.receivedAt);
+/** 아직 보내지 않았으면 작성 시각이 기준이 된다 — `toMail` 의 receivedAt 과 같다. */
+const receivedAt = (email: EmailSummary) => email.sentAt ?? email.createdAt;
+
+const byReceivedAtDesc = (a: EmailSummary, b: EmailSummary) =>
+  Date.parse(receivedAt(b)) - Date.parse(receivedAt(a));
 
 /**
  * 폴더 하나에 대한 목록 조회.
  * 서버가 전체 배열을 한 번에 주므로 상태로 거르고 페이지는 여기서 자른다.
+ * 수신자 주소는 지금 페이지에 놓인 것만 상세로 채운다 — 전체를 채우면
+ * 메일이 쌓일수록 목록이 뜨는 데 걸리는 시간이 같이 늘어난다.
  */
 export function fetchEmailPage(
   folder: MailFolder,
   { page, pageSize }: MailPageParams,
 ): Promise<MailPage> {
-  return loadEmails().then((emails) => {
-    const items = emails
+  return loadEmails().then(async (emails) => {
+    const matched = emails
       .filter(
         (email) =>
           folder === "all" || FOLDER_BY_STATUS[email.status] === folder,
       )
-      .map(toMail)
       .sort(byReceivedAtDesc);
 
     const start = (page - 1) * pageSize;
+    const pageItems = matched.slice(start, start + pageSize);
+    const recipients = await loadRecipients(pageItems);
 
     return {
-      items: items.slice(start, start + pageSize),
-      total: items.length,
+      items: pageItems.map((email) => toMail(email, recipients.get(email.id))),
+      total: matched.length,
       page,
       pageSize,
     };
