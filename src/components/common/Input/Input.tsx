@@ -10,6 +10,8 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   rightSlot?: ReactNode;
   /** 에러·힌트 영역을 미리 확보하지 않는다 (검색창처럼 메시지가 없는 경우) */
   hideMessage?: boolean;
+  /** horizontal 은 라벨을 입력창 왼쪽에 두어 세로 높이를 줄인다 */
+  layout?: "vertical" | "horizontal";
 }
 
 export function Input({
@@ -19,6 +21,7 @@ export function Input({
   leftSlot,
   rightSlot,
   hideMessage = false,
+  layout = "vertical",
   id,
   className = "",
   ...props
@@ -26,9 +29,16 @@ export function Input({
   const autoId = useId();
   const inputId = id ?? autoId;
   const describedById = error || hint ? `${inputId}-desc` : undefined;
+  const isHorizontal = layout === "horizontal";
 
   return (
-    <div className="flex w-full flex-col gap-1.5">
+    <div
+      className={
+        isHorizontal
+          ? "grid w-full grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1"
+          : "flex w-full flex-col gap-1.5"
+      }
+    >
       {label && (
         <label
           htmlFor={inputId}
@@ -38,7 +48,7 @@ export function Input({
         </label>
       )}
 
-      <div className="relative">
+      <div className={`relative ${isHorizontal && !label ? "col-start-2" : ""}`}>
         {leftSlot && (
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-text-tertiary">
             {leftSlot}
@@ -77,8 +87,8 @@ export function Input({
         <p
           id={describedById}
           className={`min-h-4 text-xs leading-4 ${
-            error ? "text-error" : "text-text-tertiary"
-          }`}
+            isHorizontal ? "col-start-2" : ""
+          } ${error ? "text-error" : "text-text-tertiary"}`}
         >
           {error ?? hint}
         </p>

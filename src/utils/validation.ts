@@ -14,7 +14,12 @@ export const signupSchema = z.object({
     .string()
     .trim()
     .min(1, "메일 도메인을 입력해주세요.")
-    .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i, "example.com 형식으로 입력해주세요."),
+    // 라벨은 영숫자로 시작·끝나야 하고(하이픈은 중간만), 최상위는 두 글자 이상.
+    // shhdoc.com / daese.kr / daese.co.kr 모두 허용된다.
+    .regex(
+      /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i,
+      "shhdoc.com, daese.co.kr 같은 형식으로 입력해주세요."
+    ),
   name: z
     .string()
     .trim()
