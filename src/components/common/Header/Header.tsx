@@ -84,12 +84,13 @@ export function Header() {
 
       <Link href={ROUTES.mail} aria-label="정션 홈" className="shrink-0">
         <Image
-          src="/assets/images/logo.png"
+          src="/assets/images/logo.svg"
           alt="정션"
           width={486}
           height={91}
           priority
-          className="h-5 w-auto"
+          // 로고가 검정 단색 svg 라 다크 모드 배경(bg-surface-primary)에 묻힌다 — invert 로 반전시킨다
+          className="h-5 w-auto dark:brightness-0 dark:invert"
         />
       </Link>
 

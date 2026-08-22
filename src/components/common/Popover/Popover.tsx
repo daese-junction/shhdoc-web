@@ -51,12 +51,12 @@ export function Popover({
       disableScrollLock
       slotProps={{
         paper: {
-          // ThemeProvider가 없어 Paper 기본값이 라이트 테마 흰 배경으로 고정된다.
-          // elevation을 죽이고 토큰으로 직접 칠해야 다크모드가 따라온다.
           elevation: 0,
           role: "dialog",
           "aria-label": ariaLabel,
-          className: `mt-1 min-w-40 overflow-hidden rounded-md border border-border-tertiary bg-surface-primary text-text-primary shadow-lg ${className}`,
+          // MUI 가 주입하는 Paper 기본 배경/글자색(흰 배경 + 검정 글자)이 토큰 클래스보다
+          // 나중에 적용돼 그냥 덮어써서는 안 먹는다 — !important 로 강제해야 다크모드가 실제로 반영된다.
+          className: `mt-1 min-w-40 overflow-hidden rounded-md border border-border-tertiary !bg-surface-primary !text-text-primary shadow-lg ${className}`,
         },
       }}
     >

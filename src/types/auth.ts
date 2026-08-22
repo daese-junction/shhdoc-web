@@ -39,3 +39,16 @@ export interface CreateCompanyResponse {
   company: Company;
   user: ApiUser;
 }
+
+/**
+ * POST /companies/members — ADMIN 이 자기 회사에 직원 계정을 만든다 (ADMIN 전용).
+ * 소속 회사는 토큰에서 읽으므로 email 의 도메인이 회사 도메인과 다르면 거부된다.
+ */
+export interface CreateMemberRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+/** 생성 응답. role 은 항상 USER 로 내려온다. */
+export type CreateMemberResponse = ApiUser;
