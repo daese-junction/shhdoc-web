@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
 import MenuOutlined from "@mui/icons-material/MenuOutlined";
 import NotificationsOutlined from "@mui/icons-material/NotificationsOutlined";
+import { fetchMe } from "@/app/(auth)/api/auth";
 import { useAppStore } from "@/stores/useAppStore";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useUserStore } from "@/stores/useUserStore";
+import { useUserStore, type User } from "@/stores/useUserStore";
+import { toStoreUserFromMe } from "@/utils/auth";
 import {
   ROUTES,
   getArea,
@@ -41,12 +43,16 @@ export function Header() {
   // 원시값을 반환하는 셀렉터라 user 객체가 바뀌어도 role 이 그대로면 리렌더되지 않는다.
   const isAdmin = useUserStore((state) => state.user?.role === "admin");
   const setUser = useUserStore((state) => state.setUser);
+  // 로그인 때 저장해 둔 값이라 팝오버를 열자마자 이름이 보인다
+  const user = useUserStore((state) => state.user);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [profileAnchorEl, setProfileAnchorEl] = useState<HTMLElement | null>(
     null
   );
   const isProfileOpen = Boolean(profileAnchorEl);
+  // /auth/me 는 팝오버를 열 때 한 번만 읽는다 (열 때마다 다시 부르지 않는다)
+  const hasLoadedMeRef = useRef(false);
 
   const handleSearch = (value: string) => {
     const query = value.trim();
@@ -57,8 +63,25 @@ export function Header() {
     );
   };
 
-  const handleProfileOpen = (event: MouseEvent<HTMLButtonElement>) =>
+  /**
+   * 팝오버를 처음 열 때 한 번만 GET /auth/me 를 읽어 소속까지 채운다.
+   * 로그인 응답에는 부서·직급이 없고, 이름도 그 뒤에 바뀌었을 수 있다.
+   */
+  const handleProfileOpen = (event: MouseEvent<HTMLButtonElement>) => {
     setProfileAnchorEl(event.currentTarget);
+
+    if (hasLoadedMeRef.current) return;
+    hasLoadedMeRef.current = true;
+
+    void fetchMe()
+      .then((me) => setUser(toStoreUserFromMe(me)))
+      .catch(() => {
+        // 실패해도 로그인 때 저장해 둔 이름은 그대로 보인다.
+        // 401 이면 인터셉터가 이미 로그아웃까지 처리한다.
+        hasLoadedMeRef.current = false;
+      });
+  };
+
   const closeProfile = () => setProfileAnchorEl(null);
 
   const handleLogout = () => {
@@ -173,7 +196,11 @@ export function Header() {
           anchorEl={profileAnchorEl}
           onClose={closeProfile}
           ariaLabel="프로필 메뉴"
+          // 이메일 한 줄이 들어갈 폭. 넘치면 각 줄이 알아서 잘린다.
+          className="w-64"
         >
+          <ProfileSummary user={user} />
+
           <button
             type="button"
             onClick={handleLogout}
@@ -184,5 +211,36 @@ export function Header() {
         </Popover>
       </div>
     </header>
+  );
+}
+
+/**
+ * 팝오버 맨 위에 붙는 "지금 로그인한 사람".
+ * 이름은 로그인 때 저장해 둔 값으로 바로 뜨고, 부서·직급은 GET /auth/me 가 도착하면 채워진다.
+ */
+function ProfileSummary({ user }: { user: User | null }) {
+  if (!user) {
+    return (
+      <p className="border-b border-border-tertiary px-4 py-3 text-sm text-text-tertiary">
+        로그인 정보를 불러오지 못했습니다
+      </p>
+    );
+  }
+
+  // 부서·직급은 안 채워진 계정이 있어 있는 것만 이어 붙인다
+  const affiliation = [user.department, user.position].filter(Boolean).join(" · ");
+
+  return (
+    <div className="flex flex-col gap-0.5 border-b border-border-tertiary px-4 py-3">
+      <p className="truncate text-sm font-medium text-text-primary" title={user.name}>
+        {user.name}
+      </p>
+      <p className="truncate text-xs text-text-secondary" title={user.email}>
+        {user.email}
+      </p>
+      {affiliation && (
+        <p className="truncate text-xs text-text-tertiary">{affiliation}</p>
+      )}
+    </div>
   );
 }

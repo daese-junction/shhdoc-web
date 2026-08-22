@@ -101,23 +101,9 @@ export function DataList<T>({
   // 다르면 아직 못 받아온 것이므로 로딩으로 본다.
   const [loadedFor, setLoadedFor] = useState<LoadKey | null>(null);
   // 헤더가 상단에 붙어 있는 동안(= 목록을 내린 동안) 아래에 그림자를 깐다.
-  // 스크롤이 목록 안에서 일어나는지 본문 영역에서 일어나는지 몰라도 되도록
-  // 헤더 바로 위에 둔 감시용 요소가 화면 밖으로 나갔는지로 판단한다.
+  // 목록은 제 안에서 스크롤되므로(바깥 화면은 늘어나지 않는다) 행 영역의
+  // scrollTop 으로 판단한다. 같은 값이면 리액트가 리렌더를 건너뛴다.
   const [isScrolled, setIsScrolled] = useState(false);
-  const topSentinelRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const sentinel = topSentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsScrolled(!entry.isIntersecting),
-      { threshold: 1 },
-    );
-    observer.observe(sentinel);
-
-    return () => observer.disconnect();
-  }, []);
 
   const ownSelection = useListSelection();
   const selection = controlledSelection ?? ownSelection;
@@ -187,11 +173,9 @@ export function DataList<T>({
   const hasColumnHeaders = columns.some((column) => Boolean(column.header));
 
   return (
-    // overflow 를 두지 않는다 — 헤더의 sticky 가 바깥 스크롤(본문 영역)을 기준으로
-    // 붙어야 목록이 길어져도 제목·페이지 정보가 화면에 남는다
+    // 스크롤은 아래 행 영역만 한다 — 목록이 길어져도 화면(본문 영역)은 늘어나지 않고
+    // 제목·페이지 정보가 늘 같은 자리에 남는다
     <div className={`flex h-full min-h-0 flex-col bg-surface-primary ${className}`}>
-      <div ref={topSentinelRef} className="h-px shrink-0" aria-hidden />
-
       {/* 제목·필터·열 제목은 한 덩어리로 상단에 고정한다 */}
       <div
         className={`sticky top-0 z-10 shrink-0 bg-surface-primary transition-shadow ${
@@ -241,7 +225,10 @@ export function DataList<T>({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        onScroll={(event) => setIsScrolled(event.currentTarget.scrollTop > 0)}
+      >
         {isLoading && items.length === 0 ? (
           <Loading />
         ) : items.length === 0 ? (

@@ -6,12 +6,20 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  /** 캔버스나 표처럼 넓은 내용이 들어가면 `md`. 기본은 `sm`. */
+  maxWidth?: "sm" | "md";
   children: ReactNode;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  maxWidth = "sm",
+  children,
+}: ModalProps) {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth={maxWidth}>
       <div className="bg-surface-primary p-5 text-text-primary sm:p-6">
         <div
           className={`mb-4 flex items-center gap-2 ${

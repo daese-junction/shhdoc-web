@@ -13,6 +13,7 @@ import {
   deleteDraft,
   fetchEmailDetail,
   isEmailId,
+  loadMailReview,
   toMailDetail,
 } from "@/api/emails";
 import {
@@ -33,7 +34,9 @@ import {
 } from "@/utils/routes";
 import { MAIL_BODY_CLASS, sanitizeMailBody } from "../mailBody";
 import { MAIL_FOLDER_META } from "../mailFolders";
-import { MAIL_STATUS_META } from "../mailStatus";
+import { getMailBadgeStatus } from "../mailStatus";
+import { MailStatusBadge } from "../MailStatusBadge";
+import { MailProgressSteps } from "./MailProgressSteps";
 
 const TOAST_DURATION = 3000;
 const UNDO_TOAST_DURATION = 6000;
@@ -87,6 +90,21 @@ export function MailDetailView({ id }: MailDetailViewProps) {
           readMarkedRef.current = result.id;
           void markMailAsRead(result.id);
         }
+
+        // 상세 응답에는 첨부가 없어 검토 단계를 따로 읽는다.
+        // 못 받아도 상세는 그대로 뜨고 알약만 "승인 대기중" 으로 남는다.
+        if (result?.status !== "BLOCKED" || !isEmail) return;
+
+        void loadMailReview(Number(id))
+          .then((review) => {
+            if (cancelled) return;
+            setMail((current) =>
+              current === null
+                ? current
+                : { ...current, reviewStage: review.stage, reviewReason: review.reason },
+            );
+          })
+          .catch(() => undefined);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -206,9 +224,14 @@ export function MailDetailView({ id }: MailDetailViewProps) {
 
   const isTrash = mail.folder === "trash";
   const isDraft = mail.status === "DRAFT";
-  const status = mail.status ? MAIL_STATUS_META[mail.status] : undefined;
+  const badgeStatus = getMailBadgeStatus(mail);
   // 반려 사유는 서버가 reviewNote 로 내려준다
   const rejectedNote = mail.status === "REJECTED" ? mail.reviewNote : null;
+  // 검토에서 걸린 문서가 있으면 어느 파일이 왜 걸렸는지 알려준다
+  const restrictedNote =
+    mail.reviewStage === "DOC_RESTRICTED" ? mail.reviewReason : null;
+  // 발송까지 가는 길 위에 있는 메일만 단계 표시를 붙인다
+  const isInPipeline = mail.status === "BLOCKED" || mail.status === "REJECTED";
   // 스펙상 DELETE 는 초안 전용이라 이미 보낸 메일에는 삭제를 내주지 않는다
   const canDelete = isEmail ? isDraft : !isTrash;
   // 서버 메일은 내가 쓴 것이라 답장할 상대가 없다
@@ -233,12 +256,11 @@ export function MailDetailView({ id }: MailDetailViewProps) {
         <span className="rounded-full bg-surface-tertiary px-2.5 py-1 text-xs text-text-secondary">
           {MAIL_FOLDER_META[mail.folder].label}
         </span>
-        {status && (
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-medium text-white ${status.className}`}
-          >
-            {status.label}
-          </span>
+        {badgeStatus && (
+          <MailStatusBadge
+            status={badgeStatus}
+            title={mail.reviewReason}
+          />
         )}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -289,6 +311,29 @@ export function MailDetailView({ id }: MailDetailViewProps) {
           )}
         </div>
       </div>
+
+      {isInPipeline && (
+        <MailProgressSteps
+          isRejected={mail.status === "REJECTED"}
+          reviewStage={mail.reviewStage}
+        />
+      )}
+
+      {restrictedNote && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-md bg-red-100 px-3 py-2 text-sm text-red-700"
+        >
+          <WarningAmberRoundedIcon
+            fontSize="small"
+            className="mt-0.5 shrink-0"
+          />
+          <span>
+            <strong className="font-medium">문서 권한 밖</strong> —{" "}
+            {restrictedNote}
+          </span>
+        </div>
+      )}
 
       {rejectedNote && (
         <div

@@ -7,7 +7,7 @@ import {
   fetchEmailAttachments,
 } from "@/api/adminEmails";
 import { getErrorMessage } from "@/api/axios";
-import { Button, Loading, Modal } from "@/components/common";
+import { Button, Loading, Modal, StatusPill } from "@/components/common";
 import { MAIL_BODY_CLASS, MailStatusBadge, sanitizeMailBody } from "@/components/mail";
 import { useToastStore } from "@/stores/useToastStore";
 import type { EmailAttachment, EmailDetail } from "@/types/mail";
@@ -42,23 +42,23 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 function AttachmentVerdictBadge({ attachment }: { attachment: EmailAttachment }) {
   if (attachment.verdict === "BLOCKED")
     return (
-      <span className="shrink-0 rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium text-error">
-        반출불가
-      </span>
+      <StatusPill
+        label="반출불가"
+        tone="bg-error/10 text-error"
+        title={attachment.reason ?? undefined}
+      />
     );
 
+  // 아직 도는 중이라는 걸 스피너로 알린다 — 발신자 화면의 "문서 검토중" 과 같은 신호다
   if (attachment.scanStatus === "PENDING")
-    return (
-      <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
-        검사 중
-      </span>
-    );
+    return <StatusPill label="검사 중" tone="bg-warning/10 text-warning" busy />;
 
   if (attachment.scanStatus === "FAILED")
     return (
-      <span className="shrink-0 rounded-full bg-surface-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary">
-        검사 실패
-      </span>
+      <StatusPill
+        label="검사 실패"
+        tone="bg-surface-tertiary text-text-secondary"
+      />
     );
 
   return null;

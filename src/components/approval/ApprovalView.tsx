@@ -123,7 +123,7 @@ export function ApprovalView() {
 
   return (
     // 목록이 본문 영역을 그대로 채운다 — 여백 없이 화면 끝까지
-    <div className="flex min-h-auto flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <DataList<ApprovalEmail>
         className="min-h-0 flex-1"
         title="승인/결재"
