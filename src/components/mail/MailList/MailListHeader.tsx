@@ -24,9 +24,10 @@ interface MailListHeaderProps {
   total: number;
   onToggleAll: (checked: boolean) => void;
   onRefresh: () => void;
-  onMarkAsRead: () => void;
-  onDelete: () => void;
-  onPermanentDelete: () => void;
+  /** 넘기지 않으면 해당 버튼을 그리지 않는다 — 아직 API 가 없는 폴더용 */
+  onMarkAsRead?: () => void;
+  onDelete?: () => void;
+  onPermanentDelete?: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
 }
@@ -86,24 +87,28 @@ export function MailListHeader({
       {/* 선택한 메일에만 쓰는 동작이라 하나라도 골랐을 때만 꺼낸다 */}
       {hasSelection && (
         <>
-          <Button variant="outline" size="sm" onClick={onMarkAsRead}>
-            읽음
-          </Button>
-          {isTrash ? (
-            // 휴지통에서는 휴지통으로 보내는 삭제 대신 완전 삭제만 노출한다
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-error"
-              onClick={onPermanentDelete}
-            >
-              완전 삭제
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={onDelete}>
-              삭제
+          {onMarkAsRead && (
+            <Button variant="outline" size="sm" onClick={onMarkAsRead}>
+              읽음
             </Button>
           )}
+          {isTrash
+            ? // 휴지통에서는 휴지통으로 보내는 삭제 대신 완전 삭제만 노출한다
+              onPermanentDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-error"
+                  onClick={onPermanentDelete}
+                >
+                  완전 삭제
+                </Button>
+              )
+            : onDelete && (
+                <Button variant="outline" size="sm" onClick={onDelete}>
+                  삭제
+                </Button>
+              )}
           <span className="text-sm text-text-secondary">
             {selectedCount}개 선택됨
           </span>

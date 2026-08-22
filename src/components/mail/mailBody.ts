@@ -1,3 +1,73 @@
+import DOMPurify from "dompurify";
+
+/**
+ * 본문에 남겨 두는 태그. 에디터(Tiptap StarterKit + TextAlign + TextStyle)가
+ * 실제로 만들어 내는 것들이다. 여기 없는 태그는 통째로 걷어낸다.
+ */
+const ALLOWED_TAGS = [
+  "p", "br", "span", "div",
+  "strong", "b", "em", "i", "u", "s", "strike", "del",
+  "h1", "h2", "h3", "h4", "h5", "h6",
+  "ul", "ol", "li",
+  "blockquote", "hr", "code", "pre",
+  "a",
+];
+
+const ALLOWED_ATTR = ["href", "target", "rel", "style", "class", "start"];
+
+/**
+ * style 로 남겨 두는 CSS 속성. 에디터의 정렬·글자색·형광펜이 쓰는 것뿐이다.
+ * DOMPurify 는 style 속성 안의 CSS 까지 깊게 걸러 주지는 않으므로
+ * (임의 CSS 는 화면을 덮는 클릭재킹이나 외부 요청 추적에 쓰일 수 있다)
+ * 여기서 직접 화이트리스트로 다시 쓴다.
+ */
+const ALLOWED_STYLE_PROPS = ["text-align", "color", "background-color"];
+
+let hooksAdded = false;
+
+function addHooks() {
+  if (hooksAdded) return;
+  hooksAdded = true;
+
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (!(node instanceof Element)) return;
+
+    // 새 창으로 열리는 링크가 opener 를 넘겨주지 않도록 못 박는다
+    if (node.tagName === "A") {
+      node.setAttribute("target", "_blank");
+      node.setAttribute("rel", "noopener noreferrer");
+    }
+
+    if (!node.hasAttribute("style")) return;
+
+    // 브라우저 CSS 파서가 읽어 준 값만 다시 조립한다 — 나머지는 통째로 사라진다
+    const { style } = node as HTMLElement;
+    const kept = ALLOWED_STYLE_PROPS.map((prop) => {
+      const value = style.getPropertyValue(prop);
+      return value ? `${prop}: ${value}` : "";
+    })
+      .filter(Boolean)
+      .join("; ");
+
+    if (kept) node.setAttribute("style", kept);
+    else node.removeAttribute("style");
+  });
+}
+
+/**
+ * 메일 본문 HTML 을 그리기 전에 반드시 통과시킨다.
+ * 본문은 다른 사람이 API 로 직접 밀어 넣을 수 있는 값이라 그대로 믿으면 안 된다.
+ * URI 스킴은 DOMPurify 기본 정책에 맡긴다 (javascript: 등은 기본으로 막힌다).
+ */
+export function sanitizeMailBody(html: string): string {
+  // DOM 이 없는 곳에서는 정제할 수 없으므로 아무것도 그리지 않는다
+  if (typeof window === "undefined") return "";
+
+  addHooks();
+
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR });
+}
+
 /**
  * 메일 본문 HTML 의 자식 요소 서식.
  * 작성 화면(에디터)과 상세 화면(읽기)이 같은 모양을 내도록 한 곳에서 관리한다.

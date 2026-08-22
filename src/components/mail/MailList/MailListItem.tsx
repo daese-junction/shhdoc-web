@@ -2,8 +2,9 @@
 
 import { useRef, type ChangeEvent } from "react";
 import { Checkbox } from "@/components/common";
-import type { Mail } from "@/types/mail";
-import { formatMailDate, formatMailDateTime } from "@/utils/formatDate";
+import type { EmailStatus, Mail } from "@/types/mail";
+import { formatShortDateTime, formatFullDateTime } from "@/utils/formatDate";
+import { MAIL_STATUS_META, type MailStatusMeta } from "../mailStatus";
 
 interface MailListItemProps {
   mail: Mail;
@@ -63,6 +64,7 @@ export function MailListItem({
       >
         {mail.senderName}
       </span>
+      {mail.status && <MailStatusBadge status={mail.status} />}
       {/* 제목 + 본문 미리보기를 한 줄에 붙여 그리고, 넘치면 통째로 자른다 */}
       <span className="min-w-0 flex-1 truncate text-text-primary">
         <span className={mail.isRead ? "" : "font-semibold"}>{mail.title}</span>
@@ -75,11 +77,29 @@ export function MailListItem({
       </span>
       <time
         dateTime={mail.receivedAt}
-        title={formatMailDateTime(mail.receivedAt)}
+        title={formatFullDateTime(mail.receivedAt)}
         className="w-28 shrink-0 text-right text-xs text-text-tertiary"
       >
-        {formatMailDate(mail.receivedAt)}
+        {formatShortDateTime(mail.receivedAt)}
       </time>
     </li>
+  );
+}
+
+interface MailStatusBadgeProps {
+  status: EmailStatus;
+}
+
+/** 발신 계열 메일의 상태 뱃지. 서버가 모르는 상태를 주면 그리지 않는다. */
+function MailStatusBadge({ status }: MailStatusBadgeProps) {
+  const meta = MAIL_STATUS_META[status] as MailStatusMeta | undefined;
+  if (!meta) return null;
+
+  return (
+    <span
+      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[0.6875rem] font-medium leading-none text-white ${meta.className}`}
+    >
+      {meta.label}
+    </span>
   );
 }

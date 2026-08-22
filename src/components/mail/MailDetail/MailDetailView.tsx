@@ -1,11 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
+import EditOutlined from "@mui/icons-material/EditOutlined";
 import ForwardOutlined from "@mui/icons-material/ForwardOutlined";
 import ReplyOutlined from "@mui/icons-material/ReplyOutlined";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { Button, ConfirmModal, EmptyState, Loading } from "@/components/common";
+import { getErrorMessage, getErrorStatus } from "@/api/axios";
+import {
+  deleteDraft,
+  fetchEmailDetail,
+  isEmailId,
+  toMailDetail,
+} from "@/api/emails";
 import {
   fetchMailDetail,
   markMailAsRead,
@@ -15,14 +24,16 @@ import {
 } from "@/mocks/mail";
 import { useToastStore } from "@/stores/useToastStore";
 import type { MailAddress, MailDetail } from "@/types/mail";
-import { formatMailDateTime } from "@/utils/formatDate";
+import { formatFullDateTime } from "@/utils/formatDate";
 import {
   getMailComposeRoute,
   getMailFolderRoute,
+  ROUTES,
   type ComposeMode,
 } from "@/utils/routes";
-import { MAIL_BODY_CLASS } from "../mailBody";
+import { MAIL_BODY_CLASS, sanitizeMailBody } from "../mailBody";
 import { MAIL_FOLDER_META } from "../mailFolders";
+import { MAIL_STATUS_META } from "../mailStatus";
 
 const TOAST_DURATION = 3000;
 const UNDO_TOAST_DURATION = 6000;
@@ -46,25 +57,51 @@ export function MailDetailView({ id }: MailDetailViewProps) {
   // 열어본 메일은 한 번만 읽음으로 넘긴다
   const readMarkedRef = useRef<string | null>(null);
 
+  // 서버 메일이면 GET /emails/{id}, 목 메일이면 지금까지 쓰던 목 조회를 쓴다
+  const isEmail = isEmailId(id);
+
+  /** 네트워크 오류는 인터셉터가 이미 토스트로 알렸으므로 빈 메시지면 넘어간다 */
+  const toastError = useCallback(
+    (error: unknown, fallback: string) => {
+      const message = getErrorMessage(error, {}, fallback);
+      if (message) showToast(message, "error");
+    },
+    [showToast],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
-    void fetchMailDetail(id).then((result) => {
-      if (cancelled) return;
+    const load = isEmail
+      ? fetchEmailDetail(Number(id)).then(toMailDetail)
+      : fetchMailDetail(id);
 
-      setMail(result);
-      setIsLoading(false);
+    void load
+      .then((result) => {
+        if (cancelled) return;
 
-      if (result && !result.isRead && readMarkedRef.current !== result.id) {
-        readMarkedRef.current = result.id;
-        void markMailAsRead(result.id);
-      }
-    });
+        setMail(result);
+        setIsLoading(false);
+
+        if (result && !result.isRead && readMarkedRef.current !== result.id) {
+          readMarkedRef.current = result.id;
+          void markMailAsRead(result.id);
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+
+        setMail(null);
+        setIsLoading(false);
+        // 404 는 아래 "메일을 찾을 수 없습니다" 화면이 대신 알려준다
+        if (getErrorStatus(error) === 404) return;
+        toastError(error, "메일을 불러오지 못했습니다.");
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isEmail, toastError]);
 
   const goToFolder = (target: MailDetail) =>
     router.replace(getMailFolderRoute(target.folder));
@@ -82,6 +119,23 @@ export function MailDetailView({ id }: MailDetailViewProps) {
   const handleDelete = async () => {
     if (!mail) return;
     setConfirmMode(null);
+
+    // 서버 초안 삭제는 복구 수단이 없어 되돌리기 액션을 붙이지 않는다
+    if (isEmail) {
+      try {
+        await deleteDraft(Number(mail.id));
+      } catch (error) {
+        toastError(error, "초안을 삭제하지 못했습니다.");
+        return;
+      }
+
+      router.replace(ROUTES.mailDrafts);
+      showToast("초안을 삭제했습니다.", {
+        type: "success",
+        duration: TOAST_DURATION,
+      });
+      return;
+    }
 
     await moveMailToTrash(mail.id);
     goToFolder(mail);
@@ -151,11 +205,21 @@ export function MailDetailView({ id }: MailDetailViewProps) {
   }
 
   const isTrash = mail.folder === "trash";
+  const isDraft = mail.status === "DRAFT";
+  const status = mail.status ? MAIL_STATUS_META[mail.status] : undefined;
+  // 반려 사유는 서버가 reviewNote 로 내려준다
+  const rejectedNote = mail.status === "REJECTED" ? mail.reviewNote : null;
+  // 스펙상 DELETE 는 초안 전용이라 이미 보낸 메일에는 삭제를 내주지 않는다
+  const canDelete = isEmail ? isDraft : !isTrash;
+  // 서버 메일은 내가 쓴 것이라 답장할 상대가 없다
+  const canReply = !isEmail;
   const isPermanent = confirmMode === "permanentDelete";
+  // 초안 삭제도 되돌릴 수 없으므로 완전 삭제와 같은 문구를 쓴다
+  const isDestructive = isPermanent || (confirmMode === "delete" && isEmail);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      {/* 액션바 — 좌: 뒤로가기·폴더 / 우: 답장·전달·삭제 */}
+      {/* 액션바 — 좌: 뒤로가기·폴더·상태 / 우: 수정·답장·전달·삭제 */}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
@@ -169,12 +233,27 @@ export function MailDetailView({ id }: MailDetailViewProps) {
         <span className="rounded-full bg-surface-tertiary px-2.5 py-1 text-xs text-text-secondary">
           {MAIL_FOLDER_META[mail.folder].label}
         </span>
+        {status && (
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-medium text-white ${status.className}`}
+          >
+            {status.label}
+          </span>
+        )}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => compose("reply")}>
-            <ReplyOutlined fontSize="small" />
-            답장
-          </Button>
+          {isEmail && isDraft && (
+            <Button variant="outline" size="sm" onClick={() => compose("edit")}>
+              <EditOutlined fontSize="small" />
+              수정
+            </Button>
+          )}
+          {canReply && (
+            <Button variant="outline" size="sm" onClick={() => compose("reply")}>
+              <ReplyOutlined fontSize="small" />
+              답장
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => compose("forward")}>
             <ForwardOutlined fontSize="small" />
             전달
@@ -198,16 +277,33 @@ export function MailDetailView({ id }: MailDetailViewProps) {
               </Button>
             </>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirmMode("delete")}
-            >
-              삭제
-            </Button>
+            canDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmMode("delete")}
+              >
+                삭제
+              </Button>
+            )
           )}
         </div>
       </div>
+
+      {rejectedNote && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-md bg-red-100 px-3 py-2 text-sm text-red-700"
+        >
+          <WarningAmberRoundedIcon
+            fontSize="small"
+            className="mt-0.5 shrink-0"
+          />
+          <span>
+            <strong className="font-medium">반려 사유</strong> — {rejectedNote}
+          </span>
+        </div>
+      )}
 
       <article className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border-tertiary bg-surface-primary">
         <header className="shrink-0 border-b border-border-tertiary px-6 py-4">
@@ -224,17 +320,20 @@ export function MailDetailView({ id }: MailDetailViewProps) {
               dateTime={mail.receivedAt}
               className="ml-auto text-xs whitespace-nowrap text-text-tertiary"
             >
-              {formatMailDateTime(mail.receivedAt)}
+              {formatFullDateTime(mail.receivedAt)}
             </time>
           </div>
 
           <RecipientLine recipients={mail.recipients} />
         </header>
 
-        {/* 본문은 에디터가 만든 HTML 이다. API 연동 시 서버에서 정제한 값만 받는다. */}
+        {/*
+          본문은 HTML 이라 그대로 넣으면 스크립트가 실행된다.
+          작성자가 API 로 직접 밀어 넣을 수 있는 값이므로 반드시 정제한 뒤 그린다.
+        */}
         <div
           className={`min-h-0 flex-1 overflow-y-auto px-6 py-5 text-sm leading-relaxed break-words text-text-primary ${MAIL_BODY_CLASS}`}
-          dangerouslySetInnerHTML={{ __html: mail.body }}
+          dangerouslySetInnerHTML={{ __html: sanitizeMailBody(mail.body) }}
         />
       </article>
 
@@ -244,14 +343,14 @@ export function MailDetailView({ id }: MailDetailViewProps) {
         onConfirm={() =>
           void (isPermanent ? handlePermanentDelete() : handleDelete())
         }
-        title={isPermanent ? "메일 완전 삭제" : "메일 삭제"}
+        title={isDestructive ? "메일 완전 삭제" : "메일 삭제"}
         description={
-          isPermanent
+          isDestructive
             ? "이 메일을 완전히 삭제할까요? 삭제한 메일은 복구할 수 없습니다."
             : "이 메일을 삭제할까요? 휴지통에서 다시 꺼낼 수 있습니다."
         }
-        confirmLabel={isPermanent ? "완전 삭제" : "삭제"}
-        danger={isPermanent}
+        confirmLabel={isDestructive ? "완전 삭제" : "삭제"}
+        danger={isDestructive}
       />
     </div>
   );

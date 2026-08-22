@@ -2,8 +2,8 @@ import type { MailStoredFolder } from "@/types/mail";
 
 export type Area = "mail" | "manage";
 
-/** 메일을 쓸 때 원문을 어떻게 물고 들어가는지 */
-export type ComposeMode = "reply" | "forward";
+/** 메일을 쓸 때 원문을 어떻게 물고 들어가는지. `edit` 는 저장해 둔 초안을 이어서 고친다. */
+export type ComposeMode = "reply" | "forward" | "edit";
 
 export const ROUTES = {
   mail: "/mail",

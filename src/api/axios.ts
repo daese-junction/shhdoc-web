@@ -76,6 +76,11 @@ api.interceptors.response.use(
   }
 );
 
+/** 응답이 있으면 그 상태 코드. 끊김·타임아웃처럼 응답 자체가 없으면 undefined. */
+export function getErrorStatus(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined;
+}
+
 /** 서버 메시지를 우선 쓰고, 없으면 상태 코드별 문구로 대체한다. */
 export function getErrorMessage(
   error: unknown,
