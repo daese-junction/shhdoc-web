@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "정션",
-  description: "정션 서비스",
+  title: "ShhDoc - 쉿독",
+  description: "ShhDoc 서비스",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

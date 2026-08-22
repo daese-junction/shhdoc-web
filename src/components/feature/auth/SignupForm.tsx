@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import axios from "axios";
 import { Button, Input, PasswordInput } from "@/components/common";
 import { toEmail } from "@/utils/auth";
 import {
@@ -66,12 +67,21 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
       showToast(`${email} 계정이 만들어졌어요. 로그인해주세요.`, "success");
       onSuccess?.(email);
     } catch (error) {
-      setFormError(
-        getErrorMessage(error, {
-          400: "대표자 이메일이 회사 도메인과 달라요. 아이디와 도메인을 확인해주세요.",
-          409: "이미 등록된 도메인이거나 이미 가입된 이메일입니다.",
-        })
-      );
+      // 도메인 중복은 메일 도메인 입력창 아래에 바로 보여준다.
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        setErrors((prev) => ({
+          ...prev,
+          emailDomain: getErrorMessage(error, {
+            409: "이미 등록된 회사 도메인입니다.",
+          }),
+        }));
+      } else {
+        setFormError(
+          getErrorMessage(error, {
+            400: "대표자 이메일이 회사 도메인과 달라요. 아이디와 도메인을 확인해주세요.",
+          })
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }

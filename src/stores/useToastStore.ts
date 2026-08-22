@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 type ToastType = "info" | "success" | "error";
 
-interface Toast {
+export interface Toast {
   id: number;
   message: string;
   type: ToastType;

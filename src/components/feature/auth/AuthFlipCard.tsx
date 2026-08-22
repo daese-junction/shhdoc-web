@@ -16,7 +16,7 @@ const FACE = {
   },
   signup: {
     title: "회원가입",
-    description: "회사 도메인을 등록하면 같은 도메인을 쓰는 동료가 내부 수신자로 인식됩니다",
+    description: "회사를 등록하고 우리 회사만의 메일 환경을 시작해보세요",
     prompt: "이미 계정이 있으신가요?",
     action: "로그인",
     path: "/signup",
