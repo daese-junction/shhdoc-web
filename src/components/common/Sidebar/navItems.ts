@@ -19,10 +19,8 @@ export interface NavItem {
   href: string;
   label: string;
   Icon: IconComponent;
-  /** 폴더의 전체 개수. 펼친 상태에서 오른쪽 회색 숫자로 표시된다. */
-  count?: number;
-  /** 주목이 필요한 개수(읽지 않음·대기). 브랜드 컬러 pill로 표시된다. */
-  badge?: number;
+  /** 읽지 않은 메일 수. 펼치면 오른쪽 숫자, 접으면 아이콘 위 파란 점으로 표시된다. */
+  unreadCount?: number;
 }
 
 export interface NavSection {
@@ -30,14 +28,14 @@ export interface NavSection {
   items: NavItem[];
 }
 
-/** 메일 사이드내비 폴더 목록. count/badge는 API 연동 전까지의 목데이터. */
+/** 메일 사이드내비 폴더 목록. unreadCount 는 API 연동 전까지의 목데이터. */
 export const MAIL_NAV_ITEMS: NavItem[] = [
-  { href: "/mail/inbox", label: "수신함", Icon: InboxOutlined, count: 12, badge: 3 },
-  { href: "/mail/pending", label: "승인대기", Icon: PendingActionsOutlined, count: 5, badge: 5 },
-  { href: "/mail/sent", label: "발신함", Icon: SendOutlined, count: 8 },
-  { href: "/mail/drafts", label: "임시보관", Icon: DraftsOutlined, count: 2 },
-  { href: "/mail/all", label: "전체", Icon: AllInboxOutlined, count: 27 },
-  { href: "/mail/trash", label: "휴지통", Icon: DeleteOutlineOutlined, count: 1 },
+  { href: "/mail/inbox", label: "수신함", Icon: InboxOutlined, unreadCount: 3 },
+  { href: "/mail/pending", label: "승인대기", Icon: PendingActionsOutlined, unreadCount: 5 },
+  { href: "/mail/sent", label: "발신함", Icon: SendOutlined },
+  { href: "/mail/drafts", label: "임시보관", Icon: DraftsOutlined },
+  { href: "/mail/all", label: "전체", Icon: AllInboxOutlined, unreadCount: 8 },
+  { href: "/mail/trash", label: "휴지통", Icon: DeleteOutlineOutlined },
 ];
 
 /** 관리 사이드내비 섹션 목록. 소제목은 클릭 불가한 텍스트 라벨이다. */

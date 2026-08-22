@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useToastStore, type Toast as ToastItem } from "@/stores/useToastStore";
 
 const typeClasses = {
@@ -8,8 +7,6 @@ const typeClasses = {
   success: "bg-success",
   error: "bg-error",
 };
-
-const AUTO_DISMISS_MS = 5000;
 
 export function Toast() {
   const { toasts, dismiss } = useToastStore();
@@ -29,25 +26,37 @@ export function Toast() {
   );
 }
 
-function ToastMessage({
-  toast,
-  onDismiss,
-}: {
+interface ToastMessageProps {
   toast: ToastItem;
   onDismiss: (id: number) => void;
-}) {
-  useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), AUTO_DISMISS_MS);
-    return () => clearTimeout(timer);
-  }, [toast.id, onDismiss]);
+}
 
+/** 자동 닫힘은 스토어의 duration 이 담당한다 — 여기서는 그리기만 한다 */
+function ToastMessage({ toast, onDismiss }: ToastMessageProps) {
   return (
-    <button
-      type="button"
-      onClick={() => onDismiss(toast.id)}
-      className={`pointer-events-auto w-full max-w-sm rounded-lg px-4 py-2.5 text-left text-sm text-white shadow-lg sm:w-auto ${typeClasses[toast.type]}`}
+    // 액션 버튼을 담아야 해서 바깥은 div 로 둔다 — 버튼은 중첩할 수 없다
+    <div
+      className={`pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-white shadow-lg sm:w-auto ${typeClasses[toast.type]}`}
     >
-      {toast.message}
-    </button>
+      <button
+        type="button"
+        onClick={() => onDismiss(toast.id)}
+        className="min-w-0 flex-1 text-left"
+      >
+        {toast.message}
+      </button>
+      {toast.action && (
+        <button
+          type="button"
+          onClick={() => {
+            toast.action?.onClick();
+            onDismiss(toast.id);
+          }}
+          className="shrink-0 font-semibold underline underline-offset-2 hover:opacity-80"
+        >
+          {toast.action.label}
+        </button>
+      )}
+    </div>
   );
 }
