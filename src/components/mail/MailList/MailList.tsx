@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, ConfirmModal, DataList } from "@/components/common";
 import { getErrorMessage } from "@/api/axios";
 import { useListSelection } from "@/hooks/useListSelection";
@@ -35,6 +35,11 @@ interface MailListProps {
   onOpenMail?: (mail: Mail) => void;
   /** 새로고침이 캐시를 건너뛰고 서버를 다시 보게 한다. 참조가 고정돼 있어야 한다. */
   onInvalidate?: () => void;
+  /**
+   * 이 간격(ms)마다 목록을 스스로 다시 읽는다.
+   * 아직 진행 중인 상태(AI 검증 등)를 따라갈 때만 넘기고, 평소에는 비워 둔다.
+   */
+  autoRefreshMs?: number;
 }
 
 /** 공통 목록(DataList) 위에 메일함 동작(읽음·삭제·복원)만 얹은 화면 */
@@ -54,6 +59,7 @@ export function MailList({
   onRestore,
   onOpenMail,
   onInvalidate,
+  autoRefreshMs,
 }: MailListProps) {
   const [confirmMode, setConfirmMode] = useState<ConfirmMode>(null);
   // 목록 밖(액션·되돌리기)에서 일어난 변경을 DataList 에 알리는 값
@@ -69,11 +75,23 @@ export function MailList({
     [selection.selectedIds],
   );
 
-  const reload = () => {
+  // 자동 갱신 타이머가 매번 새로 걸리지 않도록 신원을 고정해 둔다
+  const reload = useCallback(() => {
     // 캐시를 비우지 않으면 방금 지운 메일이 그대로 다시 돌아온다
     onInvalidate?.();
     setReloadToken((token) => token + 1);
-  };
+  }, [onInvalidate]);
+
+  useEffect(() => {
+    if (!autoRefreshMs) return;
+
+    const timer = setInterval(() => {
+      // 보이지 않는 탭까지 서버를 두드릴 이유는 없다 — 돌아오면 다음 차례에 읽는다
+      if (!document.hidden) reload();
+    }, autoRefreshMs);
+
+    return () => clearInterval(timer);
+  }, [autoRefreshMs, reload]);
 
   const handleRestore = async (ids: string[]) => {
     await onRestore?.(ids);

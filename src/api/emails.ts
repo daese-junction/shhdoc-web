@@ -1,3 +1,4 @@
+import { fetchAttachments, type MailAttachment } from "./attachments";
 import { api } from "./axios";
 import type {
   EmailDetail,
@@ -11,6 +12,7 @@ import type {
   MailFolder,
   MailPage,
   MailPageParams,
+  MailReview,
   MailStoredFolder,
   RecipientType,
 } from "@/types/mail";
@@ -113,6 +115,14 @@ let generation = 0;
 const detailCache = new Map<number, EmailDetail>();
 const detailInflight = new Map<number, Promise<EmailDetail>>();
 
+/**
+ * 검사가 이미 끝난 메일의 검토 결과. 검사는 PENDING → DONE 한 방향으로만 가므로
+ * 한 번 끝났으면 다시 물을 필요가 없다 — 목록을 무효화해도 이것만은 들고 있는다.
+ * (아직 도는 중인 메일은 담지 않는다. 다음 조회에서 다시 물어야 하기 때문이다.)
+ */
+const reviewCache = new Map<number, MailReview>();
+const reviewInflight = new Map<number, Promise<MailReview>>();
+
 /** 목록이 바뀌었을 때 다시 그려야 하는 곳들 (사이드네비 뱃지 등) */
 const listeners = new Set<() => void>();
 
@@ -131,6 +141,7 @@ export function subscribeEmails(listener: () => void): () => void {
 export function invalidateEmails(): void {
   cache = null;
   detailCache.clear();
+  // reviewCache 는 비우지 않는다 — 끝난 검사가 다시 시작되는 일은 없다
   generation += 1;
   listeners.forEach((notify) => notify());
 }
@@ -203,6 +214,76 @@ function loadRecipients(
   );
 }
 
+/**
+ * 첨부 검사 결과를 화면이 쓰는 검토 단계로 옮긴다.
+ *
+ * 서버에는 "검증 중"·"권한 밖" 이라는 메일 상태가 따로 없다 — `BLOCKED` 한 덩어리라
+ * 그 안을 첨부의 scanStatus·verdict 로 갈라 본다.
+ * 첨부가 없는 메일은 검증할 것도 없으므로 곧바로 승인 대기로 본다.
+ */
+function toReview(list: MailAttachment[]): MailReview {
+  if (list.some(({ scanStatus }) => scanStatus === "PENDING")) {
+    return { stage: "SCANNING" };
+  }
+
+  // 검사에 실패한 문서도 통과로 볼 수 없으므로 함께 걸러낸다
+  const blocked = list.find(
+    ({ verdict, scanStatus }) => verdict === "BLOCKED" || scanStatus === "FAILED",
+  );
+  if (!blocked) return { stage: "AWAITING_APPROVAL" };
+
+  return {
+    stage: "DOC_RESTRICTED",
+    reason: `${blocked.filename} — ${blocked.reason ?? "외부 유출이 불가한 문서입니다"}`,
+  };
+}
+
+/**
+ * 메일 한 통의 검토 단계. 같은 메일을 동시에 물으면 요청을 합치고,
+ * 검사가 끝난 결과만 캐시한다 (진행 중이면 다음에 다시 물어야 한다).
+ */
+export function loadMailReview(id: number): Promise<MailReview> {
+  const cached = reviewCache.get(id);
+  if (cached) return Promise.resolve(cached);
+
+  const pending = reviewInflight.get(id);
+  if (pending) return pending;
+
+  const request = fetchAttachments(id)
+    .then((list) => {
+      const review = toReview(list);
+      if (review.stage !== "SCANNING") reviewCache.set(id, review);
+      return review;
+    })
+    .finally(() => {
+      reviewInflight.delete(id);
+    });
+
+  reviewInflight.set(id, request);
+  return request;
+}
+
+/**
+ * 지금 페이지에 놓인 승인 대기 메일의 검토 단계만 채운다.
+ * 한 건을 못 받아도 그 줄이 "승인 대기중" 으로 보일 뿐 목록 전체는 그대로 뜬다.
+ */
+function loadReviews(emails: EmailSummary[]): Promise<Map<number, MailReview>> {
+  const waiting = emails.filter(({ status }) => status === "BLOCKED");
+
+  return Promise.all(
+    waiting.map((email) =>
+      loadMailReview(email.id)
+        .then((review) => [email.id, review] as [number, MailReview])
+        .catch(() => null),
+    ),
+  ).then(
+    (entries) =>
+      new Map(
+        entries.filter((entry): entry is [number, MailReview] => entry !== null),
+      ),
+  );
+}
+
 /** 사이드네비 뱃지가 쓰는 폴더별 건수. */
 export interface MailFolderCounts {
   /** 승인 대기 + 반려 — 둘 다 내가 다시 손봐야 하는 메일이다 */
@@ -268,7 +349,11 @@ function toRecipientLabel(
 }
 
 /** 목록 한 줄로 옮긴다. 내가 쓴 메일이라 보낸이 자리에는 받는 사람이 온다. */
-export function toMail(email: EmailSummary, recipients?: EmailRecipient[]): Mail {
+export function toMail(
+  email: EmailSummary,
+  recipients?: EmailRecipient[],
+  review?: MailReview,
+): Mail {
   return {
     id: String(email.id),
     senderName: toRecipientLabel(email.recipientCount, recipients),
@@ -278,6 +363,8 @@ export function toMail(email: EmailSummary, recipients?: EmailRecipient[]): Mail
     // 내가 쓴 메일이라 읽음 여부가 없다
     isRead: true,
     status: email.status,
+    reviewStage: review?.stage,
+    reviewReason: review?.reason,
   };
 }
 
@@ -330,10 +417,16 @@ export function fetchEmailPage(
 
     const start = (page - 1) * pageSize;
     const pageItems = matched.slice(start, start + pageSize);
-    const recipients = await loadRecipients(pageItems);
+    // 수신자와 검토 단계는 서로 기다릴 이유가 없어 함께 받는다
+    const [recipients, reviews] = await Promise.all([
+      loadRecipients(pageItems),
+      loadReviews(pageItems),
+    ]);
 
     return {
-      items: pageItems.map((email) => toMail(email, recipients.get(email.id))),
+      items: pageItems.map((email) =>
+        toMail(email, recipients.get(email.id), reviews.get(email.id)),
+      ),
       total: matched.length,
       page,
       pageSize,

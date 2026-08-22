@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useMemo } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loading } from "@/components/common";
 import {
@@ -19,11 +19,14 @@ interface MailFolderViewProps {
   folder: MailFolder;
 }
 
+/** AI 검증이 도는 동안 목록을 다시 읽는 간격 */
+const SCAN_REFRESH_INTERVAL = 8000;
+
 /** 폴더별 메일 목록 화면. `/mail/<folder>` 페이지는 이 컴포넌트만 렌더한다. */
 export function MailFolderView({ folder }: MailFolderViewProps) {
   return (
     // 목록이 본문 영역을 그대로 채운다 — 여백 없이 화면 끝까지
-    <div className="flex min-h-auto flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* 페이지 번호를 URL 에서 읽으므로 프리렌더용 경계가 필요하다 */}
       <Suspense fallback={<Loading />}>
         <FolderMailList folder={folder} />
@@ -39,11 +42,22 @@ function FolderMailList({ folder }: MailFolderViewProps) {
 
   // 수신함·휴지통은 아직 API 가 없어 목 데이터를 그대로 쓴다
   const usesEmails = isEmailFolder(folder);
+  // AI 검증이 도는 중인 메일이 이 페이지에 있는지. 있을 때만 목록을 스스로 다시 읽는다.
+  const [hasScanning, setHasScanning] = useState(false);
   // MailList 가 fetchPage 를 effect 의존성으로 쓰므로 참조를 고정한다
   const mock = useMemo(() => createMailFolderApi(folder), [folder]);
   const fetchPage = useMemo<FetchMailPage>(
     () =>
-      usesEmails ? (params) => fetchEmailPage(folder, params) : mock.fetchPage,
+      usesEmails
+        ? (params) =>
+            fetchEmailPage(folder, params).then((result) => {
+              // setState 는 신원이 고정이라 이 래퍼가 매번 새로 만들어지지 않는다
+              setHasScanning(
+                result.items.some((mail) => mail.reviewStage === "SCANNING"),
+              );
+              return result;
+            })
+        : mock.fetchPage,
     [usesEmails, folder, mock],
   );
 
@@ -104,6 +118,8 @@ function FolderMailList({ folder }: MailFolderViewProps) {
       onRestore={usesEmails ? undefined : mock.restore}
       onOpenMail={openMail}
       onInvalidate={usesEmails ? invalidateEmails : undefined}
+      // 검증이 끝나 뱃지가 넘어가는 것을 새로고침 없이 보여 준다
+      autoRefreshMs={hasScanning ? SCAN_REFRESH_INTERVAL : undefined}
       emptyTitle={meta.emptyTitle}
       emptyDescription={meta.emptyDescription}
     />

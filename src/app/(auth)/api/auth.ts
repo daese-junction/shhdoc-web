@@ -1,9 +1,15 @@
 import { api } from "@/api/axios";
-import type { LoginRequest, TokenPair } from "@/types/auth";
+import type { ApiMe, LoginRequest, TokenPair } from "@/types/auth";
 
 /** POST /auth/login — 로그인할 때마다 refreshToken 이 새로 발급되고 이전 것은 무효가 된다. */
 export const login = (payload: LoginRequest) =>
   api.post<TokenPair>("/auth/login", payload).then((res) => res.data);
+
+/**
+ * GET /auth/me — 지금 토큰의 주인. 로그인 응답에 없는 부서·직급·회사까지 내려온다.
+ * 로그인 이후 이름이나 소속이 바뀌었어도 이쪽이 최신이다.
+ */
+export const fetchMe = () => api.get<ApiMe>("/auth/me").then((res) => res.data);
 
 /** POST /auth/refresh — 401 을 만났을 때 axios 인터셉터가 자동으로 호출한다. */
 export const refresh = (refreshToken: string) =>

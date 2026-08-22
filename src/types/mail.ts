@@ -50,6 +50,30 @@ export interface Mail {
   isRead: boolean;
   /** 발신 계열 메일만 가진다. 목록에서 상태 뱃지로 보여준다. */
   status?: EmailStatus;
+  /** status 가 BLOCKED 인 메일만 가진다. 첨부 검사 결과로 파생한다. */
+  reviewStage?: MailReviewStage;
+  /** 검토에서 걸린 사유. "report.pdf — 대외비 문서" 꼴. 알약 툴팁·상세 배너에 쓴다. */
+  reviewReason?: string;
+}
+
+/**
+ * 승인 대기 메일이 백그라운드에서 어느 국면에 있는지.
+ *
+ * 서버 상태는 `BLOCKED` 하나뿐이라 그 안을 첨부 검사 진행도로 갈라 본다
+ * (파생 규칙은 src/api/emails.ts 의 `toReview`).
+ * - SCANNING: 아직 검사 중인 첨부가 있다
+ * - DOC_RESTRICTED: 외부로 못 내보내는 문서가 섞여 있다
+ * - AWAITING_APPROVAL: 검사는 끝났고 관리자 손만 기다린다
+ */
+export type MailReviewStage =
+  | "SCANNING"
+  | "DOC_RESTRICTED"
+  | "AWAITING_APPROVAL";
+
+/** 검토 단계와 그 사유. 목록·상세가 함께 쓴다. */
+export interface MailReview {
+  stage: MailReviewStage;
+  reason?: string;
 }
 
 /** 목록 조회 타입은 공통 목록(DataList)과 같은 것을 쓴다 */

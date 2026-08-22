@@ -13,6 +13,7 @@ export { Toggle } from "./Toggle/Toggle";
 export { EmptyState } from "./EmptyState/EmptyState";
 export { DataList } from "./DataList/DataList";
 export { Loading } from "./Loading/Loading";
+export { StatusPill } from "./StatusPill/StatusPill";
 export { Layout } from "./Layout/Layout";
 export { Header } from "./Header/Header";
 export { Footer } from "./Footer/Footer";

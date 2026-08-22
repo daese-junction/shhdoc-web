@@ -1,5 +1,5 @@
 import type { User } from "@/stores/useUserStore";
-import type { ApiUser } from "@/types/auth";
+import type { ApiMe, ApiUser } from "@/types/auth";
 
 /**
  * 서버 User → 스토어 User.
@@ -11,6 +11,19 @@ export function toStoreUser(apiUser: ApiUser): User {
     name: apiUser.name,
     email: apiUser.email,
     role: apiUser.role === "ADMIN" ? "admin" : "user",
+  };
+}
+
+/**
+ * GET /auth/me → 스토어 User.
+ * 로그인 응답으로 만든 User 에 소속 정보를 얹는 것이므로 `toStoreUser` 를 그대로 쓴다.
+ */
+export function toStoreUserFromMe(me: ApiMe): User {
+  return {
+    ...toStoreUser(me),
+    department: me.department ?? null,
+    position: me.position ?? null,
+    companyName: me.company?.name ?? null,
   };
 }
 
