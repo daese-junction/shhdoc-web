@@ -97,6 +97,7 @@ export type MailFolder =
 export type MailStoredFolder = Exclude<MailFolder, "all">;
 
 export interface MailAddress {
+  /** 사내 구성원이 아니면 알 수 없다 — 그럴 때는 비어 있고 화면은 주소만 보여준다 */
   name: string;
   email: string;
 }

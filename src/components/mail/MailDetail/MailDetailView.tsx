@@ -8,14 +8,21 @@ import ForwardOutlined from "@mui/icons-material/ForwardOutlined";
 import ReplyOutlined from "@mui/icons-material/ReplyOutlined";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { Button, ConfirmModal, EmptyState, Loading } from "@/components/common";
+import {
+  attachmentBlockReason,
+  isBlockedAttachment,
+  type MailAttachment,
+} from "@/api/attachments";
 import { getErrorMessage, getErrorStatus } from "@/api/axios";
 import {
   deleteDraft,
   fetchEmailDetail,
   isEmailId,
+  loadMailAttachments,
   loadMailReview,
   toMailDetail,
 } from "@/api/emails";
+import { loadMemberDirectory } from "@/api/members";
 import {
   fetchMailDetail,
   markMailAsRead,
@@ -36,6 +43,7 @@ import { MAIL_BODY_CLASS, sanitizeMailBody } from "../mailBody";
 import { MAIL_FOLDER_META } from "../mailFolders";
 import { getMailBadgeStatus } from "../mailStatus";
 import { MailStatusBadge } from "../MailStatusBadge";
+import { MailAttachmentList } from "./MailAttachmentList";
 import { MailProgressSteps } from "./MailProgressSteps";
 
 const TOAST_DURATION = 3000;
@@ -57,6 +65,16 @@ export function MailDetailView({ id }: MailDetailViewProps) {
   const [mail, setMail] = useState<MailDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmMode, setConfirmMode] = useState<ConfirmMode>(null);
+  /**
+   * 첨부와 그 조회 결과. 어느 메일 것인지를 함께 들고 있어야
+   * 다른 메일로 넘어간 직후 앞선 메일의 첨부가 남아 보이지 않는다.
+   * `failed` 는 빈 목록과 구분하기 위한 것이다 — 실패를 삼키면 "첨부 없음" 으로 읽힌다.
+   */
+  const [attachmentState, setAttachmentState] = useState<{
+    id: string;
+    files: MailAttachment[];
+    failed: boolean;
+  }>({ id, files: [], failed: false });
   // 열어본 메일은 한 번만 읽음으로 넘긴다
   const readMarkedRef = useRef<string | null>(null);
 
@@ -75,8 +93,13 @@ export function MailDetailView({ id }: MailDetailViewProps) {
   useEffect(() => {
     let cancelled = false;
 
+    // 서버 메일은 주소만 내려온다 — 이름을 채울 구성원 표를 함께 받는다.
+    // 표는 실패해도 비어서 돌아오므로 이름만 빠질 뿐 상세는 그대로 뜬다.
     const load = isEmail
-      ? fetchEmailDetail(Number(id)).then(toMailDetail)
+      ? Promise.all([
+          fetchEmailDetail(Number(id)),
+          loadMemberDirectory(),
+        ]).then(([detail, directory]) => toMailDetail(detail, directory))
       : fetchMailDetail(id);
 
     void load
@@ -91,9 +114,24 @@ export function MailDetailView({ id }: MailDetailViewProps) {
           void markMailAsRead(result.id);
         }
 
-        // 상세 응답에는 첨부가 없어 검토 단계를 따로 읽는다.
+        // 상세 응답에는 첨부가 없어 따로 읽는다.
+        // 목 메일에는 첨부 API 가 없으므로 서버 메일에서만 묻는다.
+        if (!isEmail) return;
+
+        // 상태와 무관하게 첨부는 다 보여준다 — 초안이든 발송완료든 무엇을 붙였는지
+        // 확인할 수 있어야 한다. 아래 검토 단계 조회와 같은 응답을 나눠 쓴다.
+        void loadMailAttachments(Number(id))
+          .then((files) => {
+            if (!cancelled) setAttachmentState({ id, files, failed: false });
+          })
+          .catch(() => {
+            if (!cancelled)
+              setAttachmentState({ id, files: [], failed: true });
+          });
+
+        // 검토 단계는 승인 대기 메일에만 있다.
         // 못 받아도 상세는 그대로 뜨고 알약만 "승인 대기중" 으로 남는다.
-        if (result?.status !== "BLOCKED" || !isEmail) return;
+        if (result?.status !== "BLOCKED") return;
 
         void loadMailReview(Number(id))
           .then((review) => {
@@ -222,14 +260,26 @@ export function MailDetailView({ id }: MailDetailViewProps) {
     );
   }
 
+  // 지금 보고 있는 메일 것일 때만 쓴다 — 조회가 끝나기 전에는 빈 목록으로 둔다
+  const isAttachmentsReady = attachmentState.id === id;
+  const attachments = isAttachmentsReady ? attachmentState.files : [];
+  const attachmentsFailed = isAttachmentsReady && attachmentState.failed;
+
   const isTrash = mail.folder === "trash";
   const isDraft = mail.status === "DRAFT";
   const badgeStatus = getMailBadgeStatus(mail);
   // 반려 사유는 서버가 reviewNote 로 내려준다
   const rejectedNote = mail.status === "REJECTED" ? mail.reviewNote : null;
-  // 검토에서 걸린 문서가 있으면 어느 파일이 왜 걸렸는지 알려준다
+  // 검토에서 걸린 문서. 한 건만 알리면 나머지는 손대지 못한 채 고쳐 보내도 또 막힌다.
+  const restrictedFiles =
+    mail.reviewStage === "DOC_RESTRICTED"
+      ? attachments.filter(isBlockedAttachment)
+      : [];
+  // 첨부를 못 받아온 경우 — 목록에서 받아 둔 한 줄 요약으로 물러난다
   const restrictedNote =
-    mail.reviewStage === "DOC_RESTRICTED" ? mail.reviewReason : null;
+    mail.reviewStage === "DOC_RESTRICTED" && restrictedFiles.length === 0
+      ? mail.reviewReason
+      : null;
   // 발송까지 가는 길 위에 있는 메일만 단계 표시를 붙인다
   const isInPipeline = mail.status === "BLOCKED" || mail.status === "REJECTED";
   // 스펙상 DELETE 는 초안 전용이라 이미 보낸 메일에는 삭제를 내주지 않는다
@@ -319,19 +369,39 @@ export function MailDetailView({ id }: MailDetailViewProps) {
         />
       )}
 
-      {restrictedNote && (
+      {(restrictedFiles.length > 0 || restrictedNote) && (
+        // 반려가 아니라 승인이 안 난 단계라, 상태 뱃지와 같은 warning 계열로 둔다.
+        // 붉은 배너는 아래 반려 사유 하나만 쓴다.
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-md bg-red-100 px-3 py-2 text-sm text-red-700"
+          className="flex items-start gap-2 rounded-md bg-warning/10 px-3 py-2 text-sm text-warning"
         >
           <WarningAmberRoundedIcon
             fontSize="small"
             className="mt-0.5 shrink-0"
           />
-          <span>
-            <strong className="font-medium">문서 권한 밖</strong> —{" "}
-            {restrictedNote}
-          </span>
+          <div className="min-w-0">
+            <strong className="font-medium">
+              승인 대기
+              {restrictedFiles.length > 0 &&
+                ` — 검토에서 걸린 문서 ${restrictedFiles.length}건`}
+            </strong>
+            {restrictedFiles.length > 0 ? (
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {restrictedFiles.map((attachment) => (
+                  <li key={attachment.id} className="break-words">
+                    <span className="font-medium">{attachment.filename}</span> —{" "}
+                    {attachmentBlockReason(attachment)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              // 사유가 파일마다 한 줄씩 담겨 오므로 줄바꿈을 살려 그린다
+              <p className="mt-1 whitespace-pre-line break-words">
+                {restrictedNote}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -357,10 +427,13 @@ export function MailDetailView({ id }: MailDetailViewProps) {
           </h1>
 
           <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+            {/* 이름을 모르는 주소는 주소가 이름 자리를 대신한다 — 같은 값을 두 번 쓰지 않는다 */}
             <span className="font-medium text-text-primary">
-              {mail.sender.name}
+              {mail.sender.name || mail.sender.email}
             </span>
-            <span className="text-text-tertiary">{mail.sender.email}</span>
+            {mail.sender.name && (
+              <span className="text-text-tertiary">{mail.sender.email}</span>
+            )}
             <time
               dateTime={mail.receivedAt}
               className="ml-auto text-xs whitespace-nowrap text-text-tertiary"
@@ -380,6 +453,14 @@ export function MailDetailView({ id }: MailDetailViewProps) {
           className={`min-h-0 flex-1 overflow-y-auto px-6 py-5 text-sm leading-relaxed break-words text-text-primary ${MAIL_BODY_CLASS}`}
           dangerouslySetInnerHTML={{ __html: sanitizeMailBody(mail.body) }}
         />
+
+        {/* 목 메일에는 첨부 API 가 없어 서버 메일에서만 그린다 */}
+        {isEmail && (
+          <MailAttachmentList
+            files={attachments}
+            failed={attachmentsFailed}
+          />
+        )}
       </article>
 
       <ConfirmModal
@@ -421,8 +502,15 @@ function RecipientLine({ recipients }: RecipientLineProps) {
       {visible.map((recipient, index) => (
         <span key={recipient.email}>
           {index > 0 && ", "}
-          <span className="text-text-secondary">{recipient.name}</span>{" "}
-          {`<${recipient.email}>`}
+          {/* 이름을 모르는 외부 수신자는 주소만 쓴다 — 빈 이름과 꺾쇠만 남지 않게 한다 */}
+          {recipient.name ? (
+            <>
+              <span className="text-text-secondary">{recipient.name}</span>{" "}
+              {`<${recipient.email}>`}
+            </>
+          ) : (
+            <span className="text-text-secondary">{recipient.email}</span>
+          )}
         </span>
       ))}
       {isFolded && (

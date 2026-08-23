@@ -44,8 +44,10 @@ export const MAIL_STATUS_META: Record<MailBadgeStatus, MailStatusMeta> = {
     busy: true,
   },
   DOC_RESTRICTED: {
-    label: "문서 권한 밖",
-    className: "bg-error/10 text-error",
+    label: "대기",
+    // "문서 권한 밖" 은 붉은 톤과 겹쳐 반려처럼 읽혔다.
+    // 아직 승인만 안 난 단계라 BLOCKED 와 같은 노랑~주황(warning) 계열로 둔다.
+    className: "bg-warning/10 text-warning",
     Icon: GppMaybeOutlined,
   },
   BLOCKED: {

@@ -1,5 +1,11 @@
-import { fetchAttachments, type MailAttachment } from "./attachments";
+import {
+  attachmentBlockReason,
+  fetchAttachments,
+  isBlockedAttachment,
+  type MailAttachment,
+} from "./attachments";
 import { api } from "./axios";
+import { findMemberName, type MemberDirectory } from "./members";
 import type {
   EmailDetail,
   EmailPayload,
@@ -121,7 +127,14 @@ const detailInflight = new Map<number, Promise<EmailDetail>>();
  * (아직 도는 중인 메일은 담지 않는다. 다음 조회에서 다시 물어야 하기 때문이다.)
  */
 const reviewCache = new Map<number, MailReview>();
-const reviewInflight = new Map<number, Promise<MailReview>>();
+
+/**
+ * 메일 한 통에 달린 첨부와 그 검사 결과.
+ * 상세 화면의 첨부 목록과 검토 단계가 같은 응답을 나눠 쓰므로 한 번만 물어본다.
+ * 아직 도는 중(PENDING)인 검사가 있으면 담아 두지 않는다 — 다음에 다시 물어야 한다.
+ */
+const attachmentCache = new Map<number, MailAttachment[]>();
+const attachmentInflight = new Map<number, Promise<MailAttachment[]>>();
 
 /** 목록이 바뀌었을 때 다시 그려야 하는 곳들 (사이드네비 뱃지 등) */
 const listeners = new Set<() => void>();
@@ -141,6 +154,8 @@ export function subscribeEmails(listener: () => void): () => void {
 export function invalidateEmails(): void {
   cache = null;
   detailCache.clear();
+  // 첨부는 초안에서 붙였다 뗐다 할 수 있어 목록과 함께 비운다
+  attachmentCache.clear();
   // reviewCache 는 비우지 않는다 — 끝난 검사가 다시 시작되는 일은 없다
   generation += 1;
   listeners.forEach((notify) => notify());
@@ -227,40 +242,62 @@ function toReview(list: MailAttachment[]): MailReview {
   }
 
   // 검사에 실패한 문서도 통과로 볼 수 없으므로 함께 걸러낸다
-  const blocked = list.find(
-    ({ verdict, scanStatus }) => verdict === "BLOCKED" || scanStatus === "FAILED",
-  );
-  if (!blocked) return { stage: "AWAITING_APPROVAL" };
+  const blocked = list.filter(isBlockedAttachment);
+  if (blocked.length === 0) return { stage: "AWAITING_APPROVAL" };
 
   return {
     stage: "DOC_RESTRICTED",
-    reason: `${blocked.filename} — ${blocked.reason ?? "외부 유출이 불가한 문서입니다"}`,
+    // 걸린 문서가 여럿이면 전부 적는다 — 한 건만 알리면 나머지는 손대지 못한 채
+    // 고쳐 보내도 또 막힌다. 줄바꿈은 알약 툴팁(title 속성)이 그대로 살려 준다.
+    reason: blocked
+      .map(
+        (attachment) =>
+          `${attachment.filename} — ${attachmentBlockReason(attachment)}`,
+      )
+      .join("\n"),
   };
 }
 
 /**
- * 메일 한 통의 검토 단계. 같은 메일을 동시에 물으면 요청을 합치고,
+ * 메일 한 통에 달린 첨부. 같은 메일을 동시에 물으면 요청을 합친다.
+ * 상세 화면이 첨부 목록을 그리는 데 쓰고, 아래 `loadMailReview` 도 같은 응답을 본다.
+ */
+export function loadMailAttachments(id: number): Promise<MailAttachment[]> {
+  const cached = attachmentCache.get(id);
+  if (cached) return Promise.resolve(cached);
+
+  const pending = attachmentInflight.get(id);
+  if (pending) return pending;
+
+  const request = fetchAttachments(id)
+    .then((list) => {
+      // 검사가 다 끝났을 때만 담는다 — 도는 중이면 결과가 아직 바뀐다
+      if (!list.some(({ scanStatus }) => scanStatus === "PENDING")) {
+        attachmentCache.set(id, list);
+      }
+      return list;
+    })
+    .finally(() => {
+      attachmentInflight.delete(id);
+    });
+
+  attachmentInflight.set(id, request);
+  return request;
+}
+
+/**
+ * 메일 한 통의 검토 단계.
  * 검사가 끝난 결과만 캐시한다 (진행 중이면 다음에 다시 물어야 한다).
  */
 export function loadMailReview(id: number): Promise<MailReview> {
   const cached = reviewCache.get(id);
   if (cached) return Promise.resolve(cached);
 
-  const pending = reviewInflight.get(id);
-  if (pending) return pending;
-
-  const request = fetchAttachments(id)
-    .then((list) => {
-      const review = toReview(list);
-      if (review.stage !== "SCANNING") reviewCache.set(id, review);
-      return review;
-    })
-    .finally(() => {
-      reviewInflight.delete(id);
-    });
-
-  reviewInflight.set(id, request);
-  return request;
+  return loadMailAttachments(id).then((list) => {
+    const review = toReview(list);
+    if (review.stage !== "SCANNING") reviewCache.set(id, review);
+    return review;
+  });
 }
 
 /**
@@ -368,19 +405,33 @@ export function toMail(
   };
 }
 
-/** 서버는 주소만 준다. 이름을 알 수 없으므로 이름 자리에도 주소를 쓴다. */
-const toAddress = (address: string): MailAddress => ({
-  name: address,
+/**
+ * 서버는 주소만 준다 — 이름은 같은 회사 구성원 목록에서 찾아 채운다.
+ * 표에 없는 주소(외부 수신자)는 이름을 비워 두고 화면이 주소만 보여준다.
+ */
+const toAddress = (
+  address: string,
+  directory?: MemberDirectory,
+): MailAddress => ({
+  name: findMemberName(directory, address) ?? "",
   email: address,
 });
 
-/** 상세 응답을 화면이 쓰는 모양으로 옮긴다. */
-export function toMailDetail(email: EmailDetail): MailDetail {
+/**
+ * 상세 응답을 화면이 쓰는 모양으로 옮긴다.
+ * 구성원 표를 함께 넘기면 보낸 사람·받는 사람의 이름까지 채워진다.
+ */
+export function toMailDetail(
+  email: EmailDetail,
+  directory?: MemberDirectory,
+): MailDetail {
   return {
     id: String(email.id),
     senderName: email.senderAddress,
-    sender: toAddress(email.senderAddress),
-    recipients: email.recipients.map((recipient) => toAddress(recipient.address)),
+    sender: toAddress(email.senderAddress, directory),
+    recipients: email.recipients.map((recipient) =>
+      toAddress(recipient.address, directory),
+    ),
     title: email.subject,
     body: email.body,
     receivedAt: email.sentAt ?? email.createdAt,

@@ -23,6 +23,7 @@ import {
   toRecipients,
   updateDraft,
 } from "@/api/emails";
+import { loadMemberDirectory } from "@/api/members";
 import { fetchMailDetail } from "@/mocks/mail";
 import { useToastStore } from "@/stores/useToastStore";
 import type { EmailPayload, MailDetail } from "@/types/mail";
@@ -57,8 +58,9 @@ const withPrefix = (prefix: string, title: string) =>
     ? title
     : `${prefix} ${title}`;
 
+/** 인용문에 붙는 "이름 <주소>". 이름을 모르는 주소는 주소만 쓴다. */
 const addressText = ({ name, email }: { name: string; email: string }) =>
-  `${name} <${email}>`;
+  name ? `${name} <${email}>` : email;
 
 function buildDraft(mode: ComposeMode, mail: MailDetail): ComposeDraft {
   // 인용한 원문이 그대로 다시 서버로 올라가므로 여기서도 한 번 걸러 둔다
@@ -108,10 +110,15 @@ function buildDraft(mode: ComposeMode, mail: MailDetail): ComposeDraft {
   };
 }
 
-/** 원문 조회. 서버 메일이면 GET /emails/{id}, 아니면 목 데이터를 읽는다. */
+/**
+ * 원문 조회. 서버 메일이면 GET /emails/{id}, 아니면 목 데이터를 읽는다.
+ * 답장·전달 인용문에 이름이 들어가므로 구성원 표를 함께 받는다 (상세 화면과 같은 캐시를 쓴다).
+ */
 function loadSource(id: string): Promise<MailDetail | null> {
   return isEmailId(id)
-    ? fetchEmailDetail(Number(id)).then(toMailDetail)
+    ? Promise.all([fetchEmailDetail(Number(id)), loadMemberDirectory()]).then(
+        ([detail, directory]) => toMailDetail(detail, directory),
+      )
     : fetchMailDetail(id);
 }
 
@@ -290,12 +297,11 @@ function ComposeForm({ draft, editingId }: ComposeFormProps) {
       const sent = await sendEmail(targetId);
       // 결재가 필요하면 곧바로 SENT 가 되지 않고 BLOCKED(승인 대기)로 떨어진다
       const isDelivered = sent.status === "SENT";
-      const message = isDelivered
-        ? "메일을 발송했습니다."
-        : "발송을 요청했습니다. AI 검증과 관리자 승인을 거쳐 발송됩니다.";
 
       router.push(isDelivered ? ROUTES.mailSent : ROUTES.mailPending);
-      showToast(message, "success");
+      // 승인 대기로 떨어진 메일은 승인대기함의 상태 뱃지가 이어서 알린다
+      // ("문서 검토중" → "승인 대기중"). 토스트로 같은 말을 한 번 더 하지 않는다.
+      if (isDelivered) showToast("메일을 발송했습니다.", "success");
     } catch (error) {
       toastError(error, "발송에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       setIsSending(false);
