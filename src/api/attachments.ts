@@ -137,6 +137,26 @@ export function fetchAttachments(
     .then((response) => response.data);
 }
 
+/**
+ * 통과로 볼 수 없는 첨부.
+ * 반출 불가 판정을 받았거나, 검사 자체가 실패해 판정이 없는 문서다 —
+ * 후자를 통과로 세면 확인되지 않은 문서가 그대로 나간다.
+ */
+export function isBlockedAttachment({
+  verdict,
+  scanStatus,
+}: MailAttachment): boolean {
+  return verdict === "BLOCKED" || scanStatus === "FAILED";
+}
+
+/** 왜 걸렸는지. 서버가 근거를 안 줬으면 상태에 맞는 기본 문구로 메운다. */
+export function attachmentBlockReason(attachment: MailAttachment): string {
+  if (attachment.reason) return attachment.reason;
+  return attachment.scanStatus === "FAILED"
+    ? "검사에 실패해 반출 가능 여부를 확인하지 못했습니다"
+    : "외부 유출이 불가한 문서입니다";
+}
+
 /** DELETE /attachments/{id} — DRAFT 상태의 내 메일에서만. 스토리지 객체도 함께 지워진다. */
 export function deleteAttachment(
   attachmentId: number,
